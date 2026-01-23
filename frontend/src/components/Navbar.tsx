@@ -68,7 +68,6 @@ export default function Navbar() {
             <button
               onClick={toggleMobileMenu}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
-              aria-expanded={isMobileMenuOpen}
               aria-label="Ana menüyü aç"
             >
               {isMobileMenuOpen ? (

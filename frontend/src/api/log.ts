@@ -4,7 +4,7 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api'
 
 // Types
 export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE';
-export type EntityType = 'EMPLOYEE' | 'PAYROLL';
+export type EntityType = 'EMPLOYEE' | 'PAYROLL' | 'TRAFFIC_FINE';
 
 export interface FieldChange {
   field: string;
@@ -70,10 +70,19 @@ async function handleResponse<T>(response: Response): Promise<T> {
  */
 export async function getAllLogs(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  filters?: { employeeName?: string; month?: number | 'all'; year?: number }
 ): Promise<PaginatedLogsResponse> {
+  const params = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+  if (filters?.employeeName) params.set('employeeName', filters.employeeName);
+  if (filters?.year) params.set('year', String(filters.year));
+  if (filters?.month) params.set('month', String(filters.month));
+
   const response = await fetch(
-    `${API_BASE_URL}/logs?page=${page}&pageSize=${pageSize}`,
+    `${API_BASE_URL}/logs?${params.toString()}`,
     {
       method: 'GET',
       headers: createHeaders(),
@@ -116,6 +125,7 @@ export const ACTION_LABELS: Record<ActionType, string> = {
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   EMPLOYEE: 'Çalışan',
   PAYROLL: 'Puantaj',
+  TRAFFIC_FINE: 'Trafik Cezası',
 };
 
 // Field name display names in Turkish
@@ -133,6 +143,10 @@ export const FIELD_LABELS: Record<string, string> = {
   overtime100: '%100 Mesai',
   officialPayment: 'Resmi Ödeme',
   cashPayment: 'Elden Ödeme',
+  fineDate: 'Ceza Tarihi',
+  amount: 'Tutar',
+  description: 'Açıklama',
+  paymentDate: 'Ödeme Tarihi',
 };
 
 // Helper to format field name

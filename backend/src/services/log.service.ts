@@ -10,7 +10,7 @@ import { AppError } from '../middleware/errorHandler';
 
 // Types
 export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE';
-export type EntityType = 'EMPLOYEE' | 'PAYROLL';
+export type EntityType = 'EMPLOYEE' | 'PAYROLL' | 'TRAFFIC_FINE';
 
 export interface FieldChange {
   field: string;
@@ -198,7 +198,12 @@ export async function createAuditLog(input: CreateLogInput): Promise<AuditLogRes
  */
 export async function getAllLogs(
   page: number = 1,
-  pageSize: number = 20
+  pageSize: number = 20,
+  filters?: {
+    employeeName?: string;
+    year?: number;
+    month?: number | 'all';
+  }
 ): Promise<PaginatedLogsResponse> {
   // Validate pagination params
   if (page < 1) page = 1;
@@ -207,8 +212,28 @@ export async function getAllLogs(
 
   const skip = (page - 1) * pageSize;
 
+  const where: Record<string, unknown> = {};
+  if (filters?.employeeName) {
+    where.entityName = { contains: filters.employeeName, mode: 'insensitive' };
+  }
+
+  if (filters?.year) {
+    const year = filters.year;
+    const month = filters.month;
+
+    const start = typeof month === 'number'
+      ? new Date(year, month - 1, 1, 0, 0, 0, 0)
+      : new Date(year, 0, 1, 0, 0, 0, 0);
+    const end = typeof month === 'number'
+      ? new Date(year, month, 1, 0, 0, 0, 0)
+      : new Date(year + 1, 0, 1, 0, 0, 0, 0);
+
+    where.timestamp = { gte: start, lt: end };
+  }
+
   const [logs, total] = await Promise.all([
     prisma.auditLog.findMany({
+      where,
       skip,
       take: pageSize,
       orderBy: { timestamp: 'desc' },
@@ -220,7 +245,7 @@ export async function getAllLogs(
         },
       },
     }),
-    prisma.auditLog.count(),
+    prisma.auditLog.count({ where }),
   ]);
 
   return {

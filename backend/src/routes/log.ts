@@ -25,8 +25,18 @@ logRouter.get('/', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const page = parseInt(req.query.page as string, 10) || 1;
     const pageSize = parseInt(req.query.pageSize as string, 10) || 20;
+    const employeeName = (req.query.employeeName as string | undefined) || undefined;
+    const monthRaw = (req.query.month as string | undefined) || undefined;
+    const yearRaw = (req.query.year as string | undefined) || undefined;
 
-    const result = await getAllLogs(page, pageSize);
+    const year = yearRaw ? parseInt(yearRaw, 10) : undefined;
+    const month = monthRaw === 'all' || !monthRaw ? 'all' : parseInt(monthRaw, 10);
+
+    const result = await getAllLogs(page, pageSize, {
+      employeeName,
+      year: typeof year === 'number' && !isNaN(year) ? year : undefined,
+      month: typeof month === 'number' && !isNaN(month) ? month : 'all',
+    });
     res.json(result);
   } catch (error) {
     next(error);

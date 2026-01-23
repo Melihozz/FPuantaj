@@ -10,6 +10,7 @@ import {
   formatDate,
   formatTime,
 } from '../api/log';
+import { getAllEmployees, Employee, isApiError } from '../api/employee';
 
 // Action badge colors
 const ACTION_COLORS: Record<string, string> = {
@@ -23,6 +24,14 @@ interface LogEntryProps {
   log: AuditLog;
   isExpanded: boolean;
   onToggle: () => void;
+}
+
+function formatEntityNameForDisplay(log: AuditLog): string {
+  // Older traffic fine logs might include a date suffix like "(Fri Jan 23)".
+  if (log.entityType === 'TRAFFIC_FINE') {
+    return log.entityName.replace(/\s*\([^)]*\)\s*$/, '');
+  }
+  return log.entityName;
 }
 
 function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
@@ -47,7 +56,7 @@ function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
             </svg>
           </div>
-          <div className="text-sm font-medium text-gray-900 mb-1">{log.entityName}</div>
+          <div className="text-sm font-medium text-gray-900 mb-1">{formatEntityNameForDisplay(log)}</div>
           <div className="flex items-center justify-between text-xs text-gray-500">
             <span>{ENTITY_TYPE_LABELS[log.entityType]} • {log.userName}</span>
             <span>{formatDate(log.timestamp)}</span>
@@ -64,7 +73,7 @@ function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
               {ENTITY_TYPE_LABELS[log.entityType]}
             </span>
             <span className="text-sm font-medium text-gray-900">
-              {log.entityName}
+              {formatEntityNameForDisplay(log)}
             </span>
           </div>
           <div className="flex items-center space-x-4">
@@ -249,15 +258,38 @@ export default function LogPage() {
   const [expandedLogId, setExpandedLogId] = useState<string | null>(null);
   const pageSize = 20;
 
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployeeName, setSelectedEmployeeName] = useState<string>('');
+  const [selectedMonth, setSelectedMonth] = useState<'all' | number>('all');
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await getAllEmployees();
+        setEmployees(data);
+      } catch (err) {
+        // non-blocking for log page
+        const message = isApiError(err) ? err.message : 'Çalışanlar yüklenirken bir hata oluştu';
+        console.warn(message);
+      }
+    })();
+  }, []);
+
   useEffect(() => {
     fetchLogs(currentPage);
-  }, [currentPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, selectedEmployeeName, selectedMonth, selectedYear]);
 
   const fetchLogs = async (page: number) => {
     setIsLoading(true);
     setError(null);
     try {
-      const data = await getAllLogs(page, pageSize);
+      const data = await getAllLogs(page, pageSize, {
+        employeeName: selectedEmployeeName || undefined,
+        month: selectedMonth,
+        year: selectedYear,
+      });
       setLogsData(data);
     } catch (err) {
       const message = isLogApiError(err) ? err.message : 'Log kayıtları yüklenirken bir hata oluştu';
@@ -309,6 +341,85 @@ export default function LogPage() {
       )}
 
       <div className="p-4 sm:p-6">
+        {/* Filters */}
+        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div>
+            <label htmlFor="log_employee" className="block text-sm font-medium text-gray-700 mb-1">
+              Çalışan
+            </label>
+            <select
+              id="log_employee"
+              value={selectedEmployeeName}
+              onChange={(e) => {
+                setCurrentPage(1);
+                setExpandedLogId(null);
+                setSelectedEmployeeName(e.target.value);
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">Tümü</option>
+              {employees.map((emp) => (
+                <option key={emp.id} value={emp.fullName}>
+                  {emp.fullName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="log_month" className="block text-sm font-medium text-gray-700 mb-1">
+              Ay
+            </label>
+            <select
+              id="log_month"
+              value={String(selectedMonth)}
+              onChange={(e) => {
+                const v = e.target.value;
+                setCurrentPage(1);
+                setExpandedLogId(null);
+                setSelectedMonth(v === 'all' ? 'all' : parseInt(v, 10));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="all">Tümü</option>
+              <option value="1">Ocak</option>
+              <option value="2">Şubat</option>
+              <option value="3">Mart</option>
+              <option value="4">Nisan</option>
+              <option value="5">Mayıs</option>
+              <option value="6">Haziran</option>
+              <option value="7">Temmuz</option>
+              <option value="8">Ağustos</option>
+              <option value="9">Eylül</option>
+              <option value="10">Ekim</option>
+              <option value="11">Kasım</option>
+              <option value="12">Aralık</option>
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="log_year" className="block text-sm font-medium text-gray-700 mb-1">
+              Yıl
+            </label>
+            <select
+              id="log_year"
+              value={String(selectedYear)}
+              onChange={(e) => {
+                setCurrentPage(1);
+                setExpandedLogId(null);
+                setSelectedYear(parseInt(e.target.value, 10));
+              }}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 5 + i).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
         {logsData && logsData.logs.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             Henüz işlem geçmişi bulunmuyor.

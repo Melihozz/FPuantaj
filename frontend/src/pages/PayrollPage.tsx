@@ -77,7 +77,7 @@ export default function PayrollPage() {
       const updatedEntry = await updatePayroll(entryId, { [field]: value });
       setEntries(prev => prev.map(e => e.id === entryId ? updatedEntry : e));
       showToast('Kaydedildi', 'success');
-    } catch (err) {
+    } catch {
       showToast('Hata', 'error');
       await fetchPayroll();
     } finally {

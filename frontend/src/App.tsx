@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import EmployeesPage from './pages/EmployeesPage';
 import PayrollPage from './pages/PayrollPage';
 import LogPage from './pages/LogPage';
+import TrafficFinesPage from './pages/TrafficFinesPage';
 
 // Redirect authenticated users away from login page
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -51,6 +52,7 @@ function AppRoutes() {
       >
         <Route path="/" element={<ErrorBoundary><PayrollPage /></ErrorBoundary>} />
         <Route path="/calisanlar" element={<ErrorBoundary><EmployeesPage /></ErrorBoundary>} />
+        <Route path="/trafik-cezalari" element={<ErrorBoundary><TrafficFinesPage /></ErrorBoundary>} />
         <Route path="/log" element={<ErrorBoundary><LogPage /></ErrorBoundary>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

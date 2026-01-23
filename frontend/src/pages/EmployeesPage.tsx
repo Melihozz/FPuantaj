@@ -1,4 +1,5 @@
 import { useState, useEffect, FormEvent } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Employee,
   CreateEmployeeInput,
@@ -372,6 +373,7 @@ function EmployeeCard({ employee, onEdit, onDelete, formatDate, formatCurrency }
 
 // Main EmployeesPage component
 export default function EmployeesPage() {
+  const navigate = useNavigate();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -506,12 +508,20 @@ export default function EmployeesPage() {
               {employees.length} çalışan
             </span>
           </h1>
-          <button
-            onClick={handleAddClick}
-            className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            + Yeni Çalışan
-          </button>
+          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
+            <button
+              onClick={() => navigate('/trafik-cezalari')}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
+            >
+              Trafik Cezası Ekle
+            </button>
+            <button
+              onClick={handleAddClick}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              + Yeni Çalışan
+            </button>
+          </div>
         </div>
 
         {error && (

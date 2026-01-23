@@ -131,6 +131,11 @@ function getEntityName(entityType: EntityType, data: Record<string, unknown>): s
     const employeeName = employee?.fullName || 'Unknown';
     return `${employeeName} - ${month}/${year}`;
   }
+  if (entityType === 'TRAFFIC_FINE') {
+    const employee = data?.employee as Record<string, unknown>;
+    const employeeName = employee?.fullName || 'Unknown';
+    return `${employeeName} - Trafik Cezası`;
+  }
   return 'Unknown';
 }
 
