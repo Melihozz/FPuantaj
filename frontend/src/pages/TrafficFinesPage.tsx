@@ -1,7 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getAllEmployees, Employee, isApiError } from '../api/employee';
-import { addTrafficFinePayment, createTrafficFine, getTrafficFines, sumPayments, TrafficFine } from '../api/trafficFine';
+import { addTrafficFinePayment, createTrafficFine, deleteTrafficFine, getTrafficFines, sumPayments, TrafficFine } from '../api/trafficFine';
 import { useToast } from '../context/ToastContext';
 
 interface CreateFineModalProps {
@@ -281,6 +281,10 @@ export default function TrafficFinesPage() {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [payingFine, setPayingFine] = useState<TrafficFine | null>(null);
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletingFine, setDeletingFine] = useState<TrafficFine | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useMemo(() => employees.find((e) => e.id === selectedEmployeeId) || null, [employees, selectedEmployeeId]);
 
   useEffect(() => {
@@ -323,6 +327,23 @@ export default function TrafficFinesPage() {
     new Intl.NumberFormat('tr-TR', { style: 'currency', currency: 'TRY' }).format(amount);
 
   const formatDate = (dateString: string) => new Date(dateString).toLocaleDateString('tr-TR');
+
+  const handleDeleteFine = async () => {
+    if (!deletingFine) return;
+    setIsDeleting(true);
+    try {
+      await deleteTrafficFine(deletingFine.id);
+      showToast('Trafik cezası silindi', 'success');
+      setDeleteModalOpen(false);
+      setDeletingFine(null);
+      await fetchFines(selectedEmployeeId || undefined);
+    } catch (err) {
+      const msg = isApiError(err) ? err.message : 'Trafik cezası silinirken hata oluştu';
+      showToast(msg, 'error');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -436,15 +457,26 @@ export default function TrafficFinesPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <button
-                          onClick={() => {
-                            setPayingFine(fine);
-                            setPaymentModalOpen(true);
-                          }}
-                          className={`text-indigo-600 hover:text-indigo-900 ${isPaid ? 'opacity-40 pointer-events-none' : ''}`}
-                        >
-                          Ödeme Ekle
-                        </button>
+                        <div className="flex items-center justify-end gap-4">
+                          <button
+                            onClick={() => {
+                              setPayingFine(fine);
+                              setPaymentModalOpen(true);
+                            }}
+                            className={`text-indigo-600 hover:text-indigo-900 ${isPaid ? 'opacity-40 pointer-events-none' : ''}`}
+                          >
+                            Ödeme Ekle
+                          </button>
+                          <button
+                            onClick={() => {
+                              setDeletingFine(fine);
+                              setDeleteModalOpen(true);
+                            }}
+                            className="text-red-600 hover:text-red-900"
+                          >
+                            Sil
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -477,6 +509,41 @@ export default function TrafficFinesPage() {
         fine={payingFine}
         onSaved={async () => fetchFines(selectedEmployeeId || undefined)}
       />
+
+      {/* Delete confirm modal */}
+      {deleteModalOpen && deletingFine ? (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-medium text-gray-900 text-center mb-2">Trafik Cezasını Sil</h3>
+              <p className="text-sm text-gray-600 text-center mb-6">
+                <strong>{deletingFine.employee.fullName}</strong> için bu trafik cezasını silmek istediğinizden emin misiniz?
+                Bu cezanın ödemeleri de silinir.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    if (isDeleting) return;
+                    setDeleteModalOpen(false);
+                    setDeletingFine(null);
+                  }}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  disabled={isDeleting}
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleDeleteFine}
+                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? 'Siliniyor...' : 'Sil'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -115,3 +115,12 @@ export async function addPaymentToTrafficFine(trafficFineId: string, input: Crea
   return payment;
 }
 
+export async function deleteTrafficFine(id: string): Promise<void> {
+  // Ensure traffic fine exists
+  await getTrafficFineById(id);
+
+  await prisma.trafficFine.delete({
+    where: { id },
+  });
+}
+

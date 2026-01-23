@@ -58,6 +58,10 @@ async function handleResponse<T>(response: Response): Promise<T> {
     };
     throw error;
   }
+  // Handle 204 No Content
+  if (response.status === 204) {
+    return {} as T;
+  }
   return response.json();
 }
 
@@ -91,6 +95,14 @@ export async function addTrafficFinePayment(
     body: JSON.stringify(input),
   });
   return handleResponse<TrafficFinePayment>(response);
+}
+
+export async function deleteTrafficFine(trafficFineId: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/traffic-fines/${trafficFineId}`, {
+    method: 'DELETE',
+    headers: createHeaders(),
+  });
+  await handleResponse<void>(response);
 }
 
 export function sumPayments(payments: TrafficFinePayment[]): number {

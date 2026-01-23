@@ -1,20 +1,34 @@
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
-import { auditLogMiddleware } from '../middleware/auditLog';
+import { auditLogMiddleware, captureOldData } from '../middleware/auditLog';
 import {
   addPaymentToTrafficFine,
   createTrafficFine,
+  deleteTrafficFine,
   getTrafficFineById,
   listTrafficFines,
   validateTrafficFineInput,
   validateTrafficFinePaymentInput,
 } from '../services/trafficFine.service';
+import prisma from '../utils/prisma';
 
 export const trafficFineRouter = Router();
 
 // All traffic fine routes require authentication
 trafficFineRouter.use(authenticate);
+
+// Helper to get traffic fine data for audit log
+const getTrafficFineOldData = async (req: Request) => {
+  const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+  const fine = await prisma.trafficFine.findUnique({
+    where: { id },
+    include: {
+      employee: true,
+    },
+  });
+  return fine as Record<string, unknown> | null;
+};
 
 /**
  * GET /api/traffic-fines
@@ -99,4 +113,22 @@ trafficFineRouter.post('/:id/payments', auditLogMiddleware('TRAFFIC_FINE'), asyn
     next(error);
   }
 });
+
+/**
+ * DELETE /api/traffic-fines/:id
+ */
+trafficFineRouter.delete(
+  '/:id',
+  captureOldData('TRAFFIC_FINE', getTrafficFineOldData),
+  auditLogMiddleware('TRAFFIC_FINE'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const id = req.params.id as string;
+      await deleteTrafficFine(id);
+      res.status(204).json({ deleted: true });
+    } catch (error) {
+      next(error);
+    }
+  }
+);
 
