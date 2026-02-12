@@ -345,6 +345,31 @@ export default function TrafficFinesPage() {
     }
   };
 
+  const totalsByEmployee = useMemo(() => {
+    const totals = new Map<string, { name: string; totalRemaining: number }>();
+    fines.forEach((fine) => {
+      const paid = sumPayments(fine.payments);
+      const remaining = Math.max(0, fine.amount - paid);
+      const current = totals.get(fine.employeeId);
+      if (current) {
+        current.totalRemaining += remaining;
+      } else {
+        totals.set(fine.employeeId, {
+          name: fine.employee.fullName,
+          totalRemaining: remaining,
+        });
+      }
+    });
+    return Array.from(totals.values())
+      .filter((item) => item.totalRemaining > 0)
+      .sort((a, b) => b.totalRemaining - a.totalRemaining);
+  }, [fines]);
+
+  const grandRemainingTotal = useMemo(
+    () => totalsByEmployee.reduce((acc, item) => acc + item.totalRemaining, 0),
+    [totalsByEmployee]
+  );
+
   return (
     <div className="space-y-6">
       <div className="bg-white shadow rounded-lg">
@@ -400,89 +425,107 @@ export default function TrafficFinesPage() {
         ) : fines.length === 0 ? (
           <div className="p-10 text-center text-gray-500">Henüz kayıt yok.</div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Çalışan
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ceza Tarihi
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ceza
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Ödenen
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Kalan
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    İşlem
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {fines.map((fine) => {
-                  const paid = sumPayments(fine.payments);
-                  const remaining = Math.max(0, fine.amount - paid);
-                  const isPaid = remaining === 0 && fine.amount > 0;
-                  return (
-                    <tr key={fine.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {fine.employee.fullName}
-                        {fine.description ? (
-                          <div className="text-xs text-gray-500 mt-0.5">{fine.description}</div>
-                        ) : null}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                        {formatDate(fine.fineDate)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
-                        {formatCurrency(fine.amount)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
-                        {formatCurrency(paid)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          {isPaid ? (
-                            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                              Ödendi
-                            </span>
+          <div>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Çalışan
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ceza Tarihi
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ceza
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Ödenen
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Kalan
+                    </th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      İşlem
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {fines.map((fine) => {
+                    const paid = sumPayments(fine.payments);
+                    const remaining = Math.max(0, fine.amount - paid);
+                    const isPaid = remaining === 0 && fine.amount > 0;
+                    return (
+                      <tr key={fine.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {fine.employee.fullName}
+                          {fine.description ? (
+                            <div className="text-xs text-gray-500 mt-0.5">{fine.description}</div>
                           ) : null}
-                          <span>{formatCurrency(remaining)}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <div className="flex items-center justify-end gap-4">
-                          <button
-                            onClick={() => {
-                              setPayingFine(fine);
-                              setPaymentModalOpen(true);
-                            }}
-                            className={`text-indigo-600 hover:text-indigo-900 ${isPaid ? 'opacity-40 pointer-events-none' : ''}`}
-                          >
-                            Ödeme Ekle
-                          </button>
-                          <button
-                            onClick={() => {
-                              setDeletingFine(fine);
-                              setDeleteModalOpen(true);
-                            }}
-                            className="text-red-600 hover:text-red-900"
-                          >
-                            Sil
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                          {formatDate(fine.fineDate)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                          {formatCurrency(fine.amount)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                          {formatCurrency(paid)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {isPaid ? (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
+                                Ödendi
+                              </span>
+                            ) : null}
+                            <span>{formatCurrency(remaining)}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
+                          <div className="flex items-center justify-end gap-4">
+                            <button
+                              onClick={() => {
+                                setPayingFine(fine);
+                                setPaymentModalOpen(true);
+                              }}
+                              className={`text-indigo-600 hover:text-indigo-900 ${isPaid ? 'opacity-40 pointer-events-none' : ''}`}
+                            >
+                              Ödeme Ekle
+                            </button>
+                            <button
+                              onClick={() => {
+                                setDeletingFine(fine);
+                                setDeleteModalOpen(true);
+                              }}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Sil
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="border-t border-gray-200 bg-slate-50 px-4 sm:px-6 py-4">
+              <h3 className="text-sm font-semibold text-slate-800 mb-2">Kullanıcı Toplamları (Kalan)</h3>
+              <div className="space-y-1">
+                {totalsByEmployee.map((item) => (
+                  <div key={item.name} className="flex items-center justify-between text-sm">
+                    <span className="text-slate-700">{item.name}</span>
+                    <span className="font-semibold text-slate-900">{formatCurrency(item.totalRemaining)}</span>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
+                <span className="text-slate-900 font-semibold">Genel Kalan Toplamı</span>
+                <span className="font-bold text-slate-900">{formatCurrency(grandRemainingTotal)}</span>
+              </div>
+            </div>
           </div>
         )}
       </div>

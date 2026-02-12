@@ -5,6 +5,7 @@ import { employeeRouter } from './routes/employee';
 import { payrollRouter } from './routes/payroll';
 import { logRouter } from './routes/log';
 import { trafficFineRouter } from './routes/trafficFine';
+import { overtimeRouter } from './routes/overtime';
 import { errorHandler } from './middleware/errorHandler';
 
 const app = express();
@@ -19,6 +20,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/employees', employeeRouter);
 app.use('/api/payroll', payrollRouter);
 app.use('/api/traffic-fines', trafficFineRouter);
+app.use('/api/overtime', overtimeRouter);
 app.use('/api/logs', logRouter);
 
 // Error handling

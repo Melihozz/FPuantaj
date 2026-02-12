@@ -32,6 +32,7 @@ model Employee {
   updatedAt      DateTime       @updatedAt
   payrollEntries PayrollEntry[]
   trafficFines   TrafficFine[]
+  overtimeEntries OvertimeEntry[]
 }
 
 model PayrollEntry {
@@ -93,5 +94,25 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([timestamp])
+}
+
+model OvertimeEntry {
+  id         String   @id @default(uuid())
+  employeeId String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  entryDate  DateTime
+  month      Int
+  year       Int
+  type       String   // OVERTIME_50 | OVERTIME_100
+  multiplier Float
+  hours      Float
+  amount     Float
+  description String? // max 100
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([month, year])
+  @@index([entryDate])
 }
 

@@ -185,6 +185,287 @@ export default function PayrollPage() {
     }
   };
 
+  const handleExportExcel = async () => {
+    try {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Puantaj');
+      const moneyFormat = '#,##0.00';
+      const officialDailyRaw = FIXED_OFFICIAL_PAYMENT / OFFICIAL_WORKING_DAYS_BASE;
+
+      const formatExcelDate = (date: string | null) =>
+        date ? new Date(date).toLocaleDateString('tr-TR') : '-';
+
+      const headerLabels = [
+        'Çalışan',
+        'Sigorta',
+        'Giriş/Çıkış',
+        'Maaş',
+        'Ç.Günü',
+        'Çalıştığı',
+        'R.Günlük',
+        'G.R.Günlük',
+        'T.Günlük',
+        'G.R.Avans',
+        'R.Avans',
+        'Hak Edilen',
+        '%50',
+        '%100',
+        'Resmi',
+        'G.Resmi',
+        'Toplam',
+      ];
+
+      worksheet.columns = [
+        { width: 24 }, { width: 10 }, { width: 16 }, { width: 14 }, { width: 10 }, { width: 10 },
+        { width: 13 }, { width: 13 }, { width: 13 }, { width: 13 }, { width: 13 }, { width: 13 },
+        { width: 12 }, { width: 12 }, { width: 13 }, { width: 13 }, { width: 13 },
+      ];
+
+      const period = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
+      const titleRow = worksheet.addRow([`Puantaj Tablosu - ${period}`]);
+      worksheet.mergeCells(`A${titleRow.number}:Q${titleRow.number}`);
+      titleRow.getCell(1).font = { bold: true, size: 14 };
+      titleRow.getCell(1).alignment = { horizontal: 'left' };
+      worksheet.addRow([]);
+
+      const areaRanges: Array<{ label: string; start: number; end: number }> = [];
+      const insuredExpr = (row: number) => `LOWER(TRIM($B${row}))="evet"`;
+      const dailyWageExpr = (row: number) => `IF($E${row}>0,$D${row}/$E${row},0)`;
+      const earnedExpr = (row: number) => `MAX(0,${dailyWageExpr(row)}*$F${row})`;
+      const officialBaseExpr = (row: number) =>
+        `IF(${insuredExpr(row)},MIN(${earnedExpr(row)},MAX(0,${officialDailyRaw}*$F${row})),0)`;
+      const cashBaseExpr = (row: number) =>
+        `MAX(0,${earnedExpr(row)}-${officialBaseExpr(row)})+MAX(0,$M${row})+MAX(0,$N${row})`;
+
+      workAreaOrder.forEach((area) => {
+        const areaEntries = getSortedAreaEntries(area);
+        if (areaEntries.length === 0) return;
+
+        const groupTitle = worksheet.addRow([`${WORK_AREA_LABELS[area]} Çalışanları (${areaEntries.length} kişi)`]);
+        worksheet.mergeCells(`A${groupTitle.number}:Q${groupTitle.number}`);
+        groupTitle.getCell(1).font = { bold: true, size: 12 };
+
+        const headerRow = worksheet.addRow(headerLabels);
+        headerRow.eachCell((cell) => {
+          cell.font = { bold: true, color: { argb: 'FF334155' } };
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFE2E8F0' },
+          };
+          cell.border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        });
+        const blueHeaderCols = [6, 10, 11, 13, 14];
+        const greenHeaderCols = [7, 8, 9, 12, 15, 16, 17];
+        blueHeaderCols.forEach((col) => {
+          headerRow.getCell(col).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFDBEAFE' },
+          };
+        });
+        greenHeaderCols.forEach((col) => {
+          headerRow.getCell(col).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'FFDCFCE7' },
+          };
+        });
+
+        const startDataRow = headerRow.number + 1;
+
+        areaEntries.forEach((entry) => {
+          const dataRow = worksheet.addRow([
+            entry.employee.fullName,
+            entry.employee.isInsured ? 'Evet' : 'Hayır',
+            `${formatExcelDate(entry.employee.startDate)}${entry.employee.endDate ? ` / ${formatExcelDate(entry.employee.endDate)}` : ''}`,
+            entry.employee.salary,
+            entry.employee.workingDays,
+            entry.daysWorked,
+            0,
+            0,
+            0,
+            entry.advance,
+            entry.employee.isInsured ? entry.officialAdvance : 0,
+            0,
+            Math.max(0, entry.overtime50),
+            Math.max(0, entry.overtime100),
+            0,
+            0,
+            0,
+          ]);
+
+          const row = dataRow.number;
+          dataRow.getCell(7).value = { formula: `IF(${insuredExpr(row)},MIN($I${row},${officialDailyRaw}),0)` };
+          dataRow.getCell(8).value = { formula: `MAX(0,$I${row}-$G${row})` };
+          dataRow.getCell(9).value = { formula: dailyWageExpr(row) };
+          dataRow.getCell(12).value = { formula: earnedExpr(row) };
+          dataRow.getCell(15).value = {
+            formula: `IF(${insuredExpr(row)},MAX(0,${officialBaseExpr(row)}-MIN(${officialBaseExpr(row)},$K${row})),0)`,
+          };
+          dataRow.getCell(16).value = {
+            formula: `MAX(0,${cashBaseExpr(row)}-MIN(${cashBaseExpr(row)},$J${row}))`,
+          };
+          dataRow.getCell(17).value = { formula: `MAX(0,$L${row}+$M${row}+$N${row}-$J${row}-$K${row})` };
+
+          dataRow.getCell(2).alignment = { horizontal: 'center' };
+          dataRow.getCell(2).fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: entry.employee.isInsured ? 'FFDCFCE7' : 'FFFEE2E2' },
+          };
+          dataRow.getCell(2).font = {
+            bold: true,
+            color: { argb: entry.employee.isInsured ? 'FF166534' : 'FF991B1B' },
+          };
+          const blueDataCols = [6, 10, 11, 13, 14];
+          const greenDataCols = [7, 8, 9, 12, 15, 16, 17];
+          blueDataCols.forEach((col) => {
+            dataRow.getCell(col).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFEFF6FF' },
+            };
+          });
+          greenDataCols.forEach((col) => {
+            dataRow.getCell(col).fill = {
+              type: 'pattern',
+              pattern: 'solid',
+              fgColor: { argb: 'FFF0FDF4' },
+            };
+          });
+          for (let c = 4; c <= 17; c++) {
+            dataRow.getCell(c).numFmt = moneyFormat;
+            dataRow.getCell(c).alignment = { horizontal: 'right' };
+          }
+          dataRow.getCell(5).numFmt = '0';
+          dataRow.getCell(6).numFmt = '0';
+          dataRow.getCell(5).alignment = { horizontal: 'center' };
+          dataRow.getCell(6).alignment = { horizontal: 'center' };
+          for (let c = 1; c <= 17; c++) {
+            dataRow.getCell(c).border = {
+              top: { style: 'thin' },
+              left: { style: 'thin' },
+              bottom: { style: 'thin' },
+              right: { style: 'thin' },
+            };
+          }
+        });
+
+        const endDataRow = worksheet.rowCount;
+        areaRanges.push({
+          label: WORK_AREA_LABELS[area],
+          start: startDataRow,
+          end: endDataRow,
+        });
+        worksheet.addRow([]);
+      });
+
+      const totalsTitle = worksheet.addRow(['Toplamlar']);
+      totalsTitle.getCell(1).font = { bold: true, size: 12 };
+
+      const totalsHeaderRow = worksheet.addRow([
+        'Kategori',
+        'R.TOPLAM',
+        'G.R.TOPLAM',
+        'Genel Toplam',
+      ]);
+      totalsHeaderRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FF334155' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FFE2E8F0' },
+        };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+
+      const totalRows: number[] = [];
+      areaRanges.forEach((areaRange) => {
+        const totalRow = worksheet.addRow([areaRange.label, 0, 0, 0]);
+        totalRow.getCell(2).value = { formula: `SUM($O$${areaRange.start}:$O$${areaRange.end})` };
+        totalRow.getCell(3).value = { formula: `SUM($P$${areaRange.start}:$P$${areaRange.end})` };
+        totalRow.getCell(4).value = { formula: `SUM($Q$${areaRange.start}:$Q$${areaRange.end})` };
+
+        totalRow.getCell(1).font = { bold: true };
+        totalRow.getCell(2).numFmt = moneyFormat;
+        totalRow.getCell(3).numFmt = moneyFormat;
+        totalRow.getCell(4).numFmt = moneyFormat;
+        totalRow.getCell(2).alignment = { horizontal: 'right' };
+        totalRow.getCell(3).alignment = { horizontal: 'right' };
+        totalRow.getCell(4).alignment = { horizontal: 'right' };
+
+        for (let c = 1; c <= 4; c++) {
+          totalRow.getCell(c).border = {
+            top: { style: 'thin' },
+            left: { style: 'thin' },
+            bottom: { style: 'thin' },
+            right: { style: 'thin' },
+          };
+        }
+        totalRows.push(totalRow.number);
+      });
+
+      const grandTotalRow = worksheet.addRow(['Genel Toplam', 0, 0, 0]);
+      grandTotalRow.getCell(1).font = { bold: true };
+      grandTotalRow.getCell(2).font = { bold: true };
+      grandTotalRow.getCell(3).font = { bold: true };
+      grandTotalRow.getCell(4).font = { bold: true };
+      grandTotalRow.getCell(2).numFmt = moneyFormat;
+      grandTotalRow.getCell(3).numFmt = moneyFormat;
+      grandTotalRow.getCell(4).numFmt = moneyFormat;
+      grandTotalRow.getCell(2).alignment = { horizontal: 'right' };
+      grandTotalRow.getCell(3).alignment = { horizontal: 'right' };
+      grandTotalRow.getCell(4).alignment = { horizontal: 'right' };
+      grandTotalRow.getCell(2).value = {
+        formula: totalRows.length > 0 ? totalRows.map((row) => `B${row}`).join('+') : '0',
+      };
+      grandTotalRow.getCell(3).value = {
+        formula: totalRows.length > 0 ? totalRows.map((row) => `C${row}`).join('+') : '0',
+      };
+      grandTotalRow.getCell(4).value = {
+        formula: totalRows.length > 0 ? totalRows.map((row) => `D${row}`).join('+') : '0',
+      };
+      for (let c = 1; c <= 4; c++) {
+        grandTotalRow.getCell(c).border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      }
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer as ArrayBuffer], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `puantaj_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      showToast('Excel indirildi', 'success');
+    } catch {
+      showToast('Excel oluşturulamadı', 'error');
+    }
+  };
+
   if (isLoading) return <div className="bg-white shadow rounded-lg p-6 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div></div>;
 
   return (
@@ -204,6 +485,13 @@ export default function PayrollPage() {
           <select aria-label="Yıl seçimi" value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} className="px-3 py-2 border rounded-md text-sm">
             {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
           </select>
+          <button
+            type="button"
+            onClick={handleExportExcel}
+            className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
+          >
+            Excel'e İndir
+          </button>
         </div>
       </div>
       {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
@@ -242,25 +530,25 @@ export default function PayrollPage() {
                 </div>
                 <div className="overflow-x-hidden">
                   <table className="w-full table-fixed">
-                    <thead className="bg-gray-50 border-b">
+                    <thead className="bg-slate-100 border-b border-slate-300">
                       <tr>
-                        <th className="px-2 py-2 text-left text-[11px] font-medium text-gray-500 uppercase leading-tight">Çalışan</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-medium text-gray-500 uppercase leading-tight">Sigorta</th>
-                        <th className="px-2 py-2 text-left text-[11px] font-medium text-gray-500 uppercase leading-tight">Giriş/Çıkış</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight">Maaş</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-medium text-gray-500 uppercase leading-tight">Ç.Günü</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-medium text-gray-500 uppercase leading-tight bg-blue-50">Çalıştığı</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">R.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">G.R.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">T.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-blue-50">G.R.Avans</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-blue-50">R.Avans</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">Hak Edilen</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-blue-50">%50</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-blue-50">%100</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">Resmi</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">G.Resmi</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-medium text-gray-500 uppercase leading-tight bg-green-50">Toplam</th>
+                        <th className="px-2 py-2 text-left text-[11px] font-semibold text-slate-700 uppercase leading-tight">Çalışan</th>
+                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight">Sigorta</th>
+                        <th className="px-2 py-2 text-left text-[11px] font-semibold text-slate-700 uppercase leading-tight">Giriş/Çıkış</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight">Maaş</th>
+                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight">Ç.Günü</th>
+                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">Çalıştığı</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">R.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">G.R.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">T.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">G.R.Avans</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">R.Avans</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Hak Edilen</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">%50</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">%100</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Resmi</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">G.Resmi</th>
+                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Toplam</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-200">
@@ -305,7 +593,7 @@ export default function PayrollPage() {
                         <td className="px-2 py-1.5 text-xs font-medium whitespace-normal break-words leading-snug" title={entry.employee.fullName}>
                           {entry.employee.fullName}
                         </td>
-                        <td className="px-2 py-1.5 text-xs text-center"><span className={entry.employee.isInsured ? 'px-2 py-0.5 text-[11px] rounded-full bg-green-100 text-green-800' : 'px-2 py-0.5 text-[11px] rounded-full bg-gray-100'}>{entry.employee.isInsured ? 'Evet' : 'Hayır'}</span></td>
+                        <td className="px-2 py-1.5 text-xs text-center"><span className={entry.employee.isInsured ? 'px-2 py-0.5 text-[11px] rounded-full bg-green-100 text-green-800 font-medium' : 'px-2 py-0.5 text-[11px] rounded-full bg-red-100 text-red-800 font-medium'}>{entry.employee.isInsured ? 'Evet' : 'Hayır'}</span></td>
                         <td className="px-2 py-1.5 text-xs">
                           <div>{formatDate(entry.employee.startDate)}</div>
                           {entry.employee.endDate && <div className="text-red-600 font-medium">{formatDate(entry.employee.endDate)}</div>}
@@ -341,8 +629,8 @@ export default function PayrollPage() {
                           />
                         </td>
                         <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.earnedSalary)}</td>
-                        <td className="px-2 py-1.5 bg-blue-50"><EditableCell value={entry.overtime50} onChange={v => handleCellChange(entry.id, 'overtime50', v)} min={0} disabled={savingId !== null} className="text-right" prefix="₺" /></td>
-                        <td className="px-2 py-1.5 bg-blue-50"><EditableCell value={entry.overtime100} onChange={v => handleCellChange(entry.id, 'overtime100', v)} min={0} disabled={savingId !== null} className="text-right" prefix="₺" /></td>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.overtime50)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.overtime100)}</td>
                         {(() => {
                           return (
                             <>

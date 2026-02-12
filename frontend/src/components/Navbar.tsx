@@ -10,6 +10,7 @@ export default function Navbar() {
   const navItems = [
     { path: '/', label: 'Puantaj' },
     { path: '/calisanlar', label: 'Çalışanlar' },
+    { path: '/mesailer', label: 'Mesailer' },
     { path: '/log', label: 'İşlem Geçmişi' },
   ];
 

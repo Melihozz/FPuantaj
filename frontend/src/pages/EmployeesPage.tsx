@@ -23,6 +23,43 @@ interface EmployeeModalProps {
   isLoading: boolean;
 }
 
+interface BulkGroupFormData {
+  workArea: WorkArea;
+  rows: BulkEmployeeRow[];
+}
+
+interface BulkEmployeeRow {
+  id: string;
+  fullName: string;
+  isInsured: boolean;
+  startDate: string;
+  endDate: string;
+  salary: number;
+  workingDays: number;
+}
+
+interface BulkEmployeeModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (employees: CreateEmployeeInput[]) => Promise<void>;
+  isLoading: boolean;
+}
+
+const createBulkRow = (): BulkEmployeeRow => ({
+  id: `row_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+  fullName: '',
+  isInsured: false,
+  startDate: new Date().toISOString().split('T')[0],
+  endDate: '',
+  salary: 0,
+  workingDays: 30,
+});
+
+const defaultBulkGroup = (): BulkGroupFormData => ({
+  workArea: 'DEPO',
+  rows: [createBulkRow()],
+});
+
 function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: EmployeeModalProps) {
   const [formData, setFormData] = useState<CreateEmployeeInput>({
     fullName: '',
@@ -254,6 +291,326 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
   );
 }
 
+function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeModalProps) {
+  const [groups, setGroups] = useState<BulkGroupFormData[]>([defaultBulkGroup()]);
+  const [errors, setErrors] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setGroups([defaultBulkGroup()]);
+    setErrors([]);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const updateGroupWorkArea = (groupIndex: number, workArea: WorkArea) => {
+    setGroups((prev) =>
+      prev.map((group, i) => (i === groupIndex ? { ...group, workArea } : group))
+    );
+  };
+
+  const addGroup = () => setGroups((prev) => [...prev, defaultBulkGroup()]);
+  const removeGroup = (index: number) =>
+    setGroups((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
+
+  const addRow = (groupIndex: number) => {
+    setGroups((prev) =>
+      prev.map((group, i) =>
+        i === groupIndex ? { ...group, rows: [...group.rows, createBulkRow()] } : group
+      )
+    );
+  };
+
+  const removeRow = (groupIndex: number, rowId: string) => {
+    setGroups((prev) =>
+      prev.map((group, i) => {
+        if (i !== groupIndex) return group;
+        if (group.rows.length <= 1) return group;
+        return { ...group, rows: group.rows.filter((row) => row.id !== rowId) };
+      })
+    );
+  };
+
+  const updateRow = <K extends keyof BulkEmployeeRow>(
+    groupIndex: number,
+    rowId: string,
+    key: K,
+    value: BulkEmployeeRow[K]
+  ) => {
+    setGroups((prev) =>
+      prev.map((group, i) => {
+        if (i !== groupIndex) return group;
+        return {
+          ...group,
+          rows: group.rows.map((row) => (row.id === rowId ? { ...row, [key]: value } : row)),
+        };
+      })
+    );
+  };
+
+  const totalEmployeeCount = groups.reduce(
+    (acc, group) => acc + group.rows.filter((row) => row.fullName.trim()).length,
+    0
+  );
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    const validationErrors: string[] = [];
+    const payload: CreateEmployeeInput[] = [];
+
+    groups.forEach((group, idx) => {
+      const validRows = group.rows.filter((row) => row.fullName.trim().length > 0);
+      if (validRows.length === 0) {
+        validationErrors.push(`${idx + 1}. kategori: en az bir çalışan adı girin.`);
+      }
+      validRows.forEach((row, rowIndex) => {
+        if (row.salary <= 0) {
+          validationErrors.push(`${idx + 1}. kategori / satır ${rowIndex + 1}: maaş pozitif olmalıdır.`);
+        }
+        if (row.workingDays < 1 || row.workingDays > 31) {
+          validationErrors.push(`${idx + 1}. kategori / satır ${rowIndex + 1}: çalışma gün sayısı 1-31 arasında olmalıdır.`);
+        }
+        if (!row.startDate) {
+          validationErrors.push(`${idx + 1}. kategori / satır ${rowIndex + 1}: işe giriş tarihi zorunludur.`);
+        }
+
+        payload.push({
+          fullName: row.fullName.trim(),
+          workArea: group.workArea,
+          isInsured: row.isInsured,
+          startDate: row.startDate,
+          endDate: row.endDate || null,
+          salary: row.salary,
+          workingDays: row.workingDays,
+        });
+      });
+    });
+
+    if (validationErrors.length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+
+    setErrors([]);
+    try {
+      await onSave(payload);
+      onClose();
+    } catch {
+      // Error toast is handled in parent
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Toplu Çalışan Ekle</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-gray-500 hover:text-gray-700"
+            disabled={isLoading}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+            {errors.length > 0 && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+                {errors.map((error, index) => (
+                  <div key={`${error}-${index}`}>{error}</div>
+                ))}
+              </div>
+            )}
+
+            {groups.map((group, index) => (
+              <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4 bg-gray-50/50">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-gray-800">Kategori {index + 1}</h3>
+                  <button
+                    type="button"
+                    onClick={() => removeGroup(index)}
+                    className="text-sm text-red-600 hover:text-red-800 disabled:text-gray-400"
+                    disabled={isLoading || groups.length === 1}
+                  >
+                    Kaldır
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label htmlFor={`bulk_workarea_${index}`} className="block text-sm font-medium text-gray-700 mb-1">Çalışma Alanı</label>
+                    <select
+                      id={`bulk_workarea_${index}`}
+                      value={group.workArea}
+                      onChange={(e) => updateGroupWorkArea(index, e.target.value as WorkArea)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      disabled={isLoading}
+                    >
+                      {Object.entries(WORK_AREA_LABELS).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm border border-gray-200 rounded-md overflow-hidden">
+                    <thead className="bg-slate-100 text-slate-700">
+                      <tr>
+                        <th className="px-2 py-2 text-left font-semibold">Ad Soyad</th>
+                        <th className="px-2 py-2 text-left font-semibold">Sigortalı</th>
+                        <th className="px-2 py-2 text-left font-semibold">Maaş</th>
+                        <th className="px-2 py-2 text-left font-semibold">Çalışma Günü</th>
+                        <th className="px-2 py-2 text-left font-semibold">İşe Giriş</th>
+                        <th className="px-2 py-2 text-left font-semibold">İşten Çıkış</th>
+                        <th className="px-2 py-2 text-right font-semibold">İşlem</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.rows.map((row, rowIndex) => (
+                        <tr key={row.id} className="border-t border-gray-200 bg-white">
+                          <td className="px-2 py-2 min-w-[190px]">
+                            <label htmlFor={`bulk_fullname_${index}_${row.id}`} className="sr-only">Ad Soyad</label>
+                            <input
+                              id={`bulk_fullname_${index}_${row.id}`}
+                              type="text"
+                              value={row.fullName}
+                              onChange={(e) => updateRow(index, row.id, 'fullName', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              placeholder={`Çalışan ${rowIndex + 1}`}
+                              disabled={isLoading}
+                            />
+                          </td>
+                          <td className="px-2 py-2 min-w-[110px]">
+                            <label htmlFor={`bulk_isinsured_${index}_${row.id}`} className="sr-only">Sigortalı</label>
+                            <select
+                              id={`bulk_isinsured_${index}_${row.id}`}
+                              value={row.isInsured ? 'yes' : 'no'}
+                              onChange={(e) => updateRow(index, row.id, 'isInsured', e.target.value === 'yes')}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              disabled={isLoading}
+                            >
+                              <option value="yes">Evet</option>
+                              <option value="no">Hayır</option>
+                            </select>
+                          </td>
+                          <td className="px-2 py-2 min-w-[120px]">
+                            <label htmlFor={`bulk_salary_${index}_${row.id}`} className="sr-only">Maaş</label>
+                            <input
+                              id={`bulk_salary_${index}_${row.id}`}
+                              type="number"
+                              value={row.salary}
+                              onChange={(e) => updateRow(index, row.id, 'salary', parseFloat(e.target.value) || 0)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              min="0"
+                              step="0.01"
+                              disabled={isLoading}
+                            />
+                          </td>
+                          <td className="px-2 py-2 min-w-[110px]">
+                            <label htmlFor={`bulk_workingdays_${index}_${row.id}`} className="sr-only">Çalışma Günü</label>
+                            <input
+                              id={`bulk_workingdays_${index}_${row.id}`}
+                              type="number"
+                              value={row.workingDays}
+                              onChange={(e) => updateRow(index, row.id, 'workingDays', parseInt(e.target.value) || 30)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              min="1"
+                              max="31"
+                              disabled={isLoading}
+                            />
+                          </td>
+                          <td className="px-2 py-2 min-w-[130px]">
+                            <label htmlFor={`bulk_startdate_${index}_${row.id}`} className="sr-only">İşe Giriş</label>
+                            <input
+                              id={`bulk_startdate_${index}_${row.id}`}
+                              type="date"
+                              value={row.startDate}
+                              onChange={(e) => updateRow(index, row.id, 'startDate', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              disabled={isLoading}
+                            />
+                          </td>
+                          <td className="px-2 py-2 min-w-[130px]">
+                            <label htmlFor={`bulk_enddate_${index}_${row.id}`} className="sr-only">İşten Çıkış</label>
+                            <input
+                              id={`bulk_enddate_${index}_${row.id}`}
+                              type="date"
+                              value={row.endDate}
+                              onChange={(e) => updateRow(index, row.id, 'endDate', e.target.value)}
+                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              disabled={isLoading}
+                            />
+                          </td>
+                          <td className="px-2 py-2 text-right min-w-[80px]">
+                            <button
+                              type="button"
+                              onClick={() => removeRow(index, row.id)}
+                              className="text-sm text-red-600 hover:text-red-800 disabled:text-gray-400"
+                              disabled={isLoading || group.rows.length === 1}
+                            >
+                              Satır Sil
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <button
+                    type="button"
+                    onClick={() => addRow(index)}
+                    className="mt-3 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100"
+                    disabled={isLoading}
+                  >
+                    + Satır Ekle
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={addGroup}
+              className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100"
+              disabled={isLoading}
+            >
+              + Kategori Ekle
+            </button>
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-white">
+            <p className="text-sm text-gray-600">
+              Toplam hazırlanmış çalışan: <span className="font-semibold">{totalEmployeeCount}</span>
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                disabled={isLoading}
+              >
+                İptal
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Kaydediliyor...' : 'Toplam Listeyi Kaydet'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 
 // Delete confirmation modal
 interface DeleteModalProps {
@@ -383,6 +740,8 @@ export default function EmployeesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+  const [isBulkSaving, setIsBulkSaving] = useState(false);
   
   // Delete modal states
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -441,6 +800,29 @@ export default function EmployeesPage() {
       throw err;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleBulkSave = async (bulkEmployees: CreateEmployeeInput[]) => {
+    setIsBulkSaving(true);
+    let createdCount = 0;
+    try {
+      for (const employee of bulkEmployees) {
+        await createEmployee(employee);
+        createdCount += 1;
+      }
+      showToast(`${createdCount} çalışan başarıyla eklendi`, 'success');
+      await fetchEmployees();
+    } catch (err) {
+      const message = isApiError(err) ? err.message : 'Toplu ekleme sırasında bir hata oluştu';
+      if (createdCount > 0) {
+        showToast(`${createdCount} çalışan eklendi, kalanlar eklenemedi: ${message}`, 'error');
+      } else {
+        showToast(message, 'error');
+      }
+      throw err;
+    } finally {
+      setIsBulkSaving(false);
     }
   };
 
@@ -520,6 +902,12 @@ export default function EmployeesPage() {
               className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               + Yeni Çalışan
+            </button>
+            <button
+              onClick={() => setIsBulkModalOpen(true)}
+              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+            >
+              + Toplu Ekle
             </button>
           </div>
         </div>
@@ -668,6 +1056,13 @@ export default function EmployeesPage() {
         onSave={handleSave}
         employee={editingEmployee}
         isLoading={isSaving}
+      />
+
+      <BulkEmployeeModal
+        isOpen={isBulkModalOpen}
+        onClose={() => setIsBulkModalOpen(false)}
+        onSave={handleBulkSave}
+        isLoading={isBulkSaving}
       />
 
       <DeleteModal
