@@ -448,24 +448,52 @@ export default function PayrollPage() {
         };
       }
 
+      const filename = `puantaj_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
       const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer as ArrayBuffer], {
-        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `puantaj_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
-      document.body.appendChild(link);
-      link.click();
-      // Revoke too early can break downloads on some environments.
-      // Keep blob URL longer to avoid stalled downloads.
-      setTimeout(() => {
-        link.remove();
-      }, 1500);
-      setTimeout(() => {
-        URL.revokeObjectURL(url);
-      }, 60000);
+      const binary = buffer instanceof ArrayBuffer ? buffer : (buffer as ArrayBuffer);
+
+      const pickerWindow = window as Window & {
+        showSaveFilePicker?: (options: {
+          suggestedName: string;
+          types: Array<{ description: string; accept: Record<string, string[]> }>;
+        }) => Promise<{
+          createWritable: () => Promise<{
+            write: (data: BlobPart) => Promise<void>;
+            close: () => Promise<void>;
+          }>;
+        }>;
+      };
+
+      if (pickerWindow.showSaveFilePicker) {
+        const handle = await pickerWindow.showSaveFilePicker({
+          suggestedName: filename,
+          types: [
+            {
+              description: 'Excel File',
+              accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+            },
+          ],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(binary);
+        await writable.close();
+      } else {
+        const blob = new Blob([binary], {
+          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => {
+          link.remove();
+        }, 1500);
+        setTimeout(() => {
+          URL.revokeObjectURL(url);
+        }, 60000);
+      }
       showToast('Excel indirildi', 'success');
     } catch {
       showToast('Excel oluşturulamadı', 'error');
