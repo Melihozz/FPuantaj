@@ -294,8 +294,14 @@ export default function OvertimePage() {
       link.download = `mesailer_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
       document.body.appendChild(link);
       link.click();
-      link.remove();
-      URL.revokeObjectURL(url);
+      // Revoke too early can break downloads on some environments.
+      // Keep blob URL longer to avoid stalled downloads.
+      setTimeout(() => {
+        link.remove();
+      }, 1500);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60000);
       showToast('Excel indirildi', 'success');
     } catch {
       showToast('Excel oluşturulamadı', 'error');
