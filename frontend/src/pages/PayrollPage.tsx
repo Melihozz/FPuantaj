@@ -9,16 +9,30 @@ import {
   getCurrentPeriod,
   MONTH_NAMES,
 } from '../api/payroll';
-import { WORK_AREA_LABELS, WorkArea } from '../api/employee';
+import { WorkArea } from '../api/employee';
+import { useCategories } from '../context/CategoryContext';
+import { getPayrollConfig, DEFAULT_PAYROLL_CONFIG, PayrollConfig } from '../api/config';
 import EditableCell from '../components/EditableCell';
 import { useToast } from '../context/ToastContext';
 
 type EditableField = 'daysWorked' | 'advance' | 'officialAdvance' | 'overtime50' | 'overtime100';
 
-const FIXED_OFFICIAL_PAYMENT = 28075;
-const OFFICIAL_WORKING_DAYS_BASE = 30;
-
 export default function PayrollPage() {
+  // Hesaplama sabitleri backend'den gelir; ulaşılamazsa varsayılanlar kullanılır.
+  const [payrollConfig, setPayrollConfig] = useState<PayrollConfig>(DEFAULT_PAYROLL_CONFIG);
+  const FIXED_OFFICIAL_PAYMENT = payrollConfig.officialWageBase;
+  const OFFICIAL_WORKING_DAYS_BASE = payrollConfig.officialWorkingDaysBase;
+
+  useEffect(() => {
+    let cancelled = false;
+    getPayrollConfig().then((config) => {
+      if (!cancelled) setPayrollConfig(config);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const [entries, setEntries] = useState<PayrollEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -27,12 +41,14 @@ export default function PayrollPage() {
   const [draggingArea, setDraggingArea] = useState<WorkArea | null>(null);
   const [draggingGroupArea, setDraggingGroupArea] = useState<WorkArea | null>(null);
   const { showToast } = useToast();
-  
+  const { labelOf, orderedCodes } = useCategories();
+
   const { month: currentMonth, year: currentYear } = getCurrentPeriod();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
-  const defaultWorkAreas: WorkArea[] = ['DEPO', 'URETIM', 'OFIS', 'SAHA_ELEMANI', 'KAYSERI_YATAS', 'ANKARA_YATAS', 'ISTANBUL_YATAS', 'DIGER'];
-  const [workAreaOrder, setWorkAreaOrder] = useState<WorkArea[]>(defaultWorkAreas);
+  // Grup sırası kategorilerden gelir; kullanıcı sürükleyerek döneme özel
+  // değiştirirse localStorage'a yazılır
+  const [workAreaOrder, setWorkAreaOrder] = useState<WorkArea[]>(orderedCodes);
 
   const fetchPayroll = useCallback(async () => {
     setIsLoading(true);
@@ -53,23 +69,27 @@ export default function PayrollPage() {
 
   // Restore group order per period
   useEffect(() => {
+    if (orderedCodes.length === 0) return; // kategoriler henüz yüklenmedi
+
     const key = `puantaj_workarea_order_${selectedYear}_${selectedMonth}`;
     const raw = localStorage.getItem(key);
     if (!raw) {
-      setWorkAreaOrder(defaultWorkAreas);
+      setWorkAreaOrder(orderedCodes);
       return;
     }
     try {
       const parsed = JSON.parse(raw) as unknown;
       if (!Array.isArray(parsed)) throw new Error('invalid');
-      const fromStorage = parsed.filter((v): v is WorkArea => typeof v === 'string' && v in WORK_AREA_LABELS);
-      // Ensure we don't lose new areas
-      const merged = [...fromStorage, ...defaultWorkAreas.filter(a => !fromStorage.includes(a))];
+      // Silinmiş kategoriler kayıtlı sıradan düşer, yeni eklenenler sona gelir
+      const fromStorage = parsed.filter(
+        (v): v is WorkArea => typeof v === 'string' && orderedCodes.includes(v)
+      );
+      const merged = [...fromStorage, ...orderedCodes.filter((a) => !fromStorage.includes(a))];
       setWorkAreaOrder(merged);
     } catch {
-      setWorkAreaOrder(defaultWorkAreas);
+      setWorkAreaOrder(orderedCodes);
     }
-  }, [selectedMonth, selectedYear]);
+  }, [selectedMonth, selectedYear, orderedCodes]);
 
   const handleCellChange = async (entryId: string, field: EditableField, value: number) => {
     setSavingId(entryId);
@@ -88,41 +108,51 @@ export default function PayrollPage() {
   const formatDate = (d: string | null) => d ? new Date(d).toLocaleDateString('tr-TR') : '-';
   const yearOptions = Array.from({ length: 7 }, (_, i) => currentYear - 5 + i);
 
-  const grouped: Record<WorkArea, PayrollEntry[]> = {
-    DEPO: [],
-    URETIM: [],
-    OFIS: [],
-    SAHA_ELEMANI: [],
-    KAYSERI_YATAS: [],
-    ANKARA_YATAS: [],
-    ISTANBUL_YATAS: [],
-    DIGER: [],
-  };
-  entries.forEach(e => grouped[e.employee.workArea].push(e));
+  const grouped: Record<string, PayrollEntry[]> = {};
+  entries.forEach((e) => {
+    if (!grouped[e.employee.workArea]) grouped[e.employee.workArea] = [];
+    grouped[e.employee.workArea].push(e);
+  });
+
+  // Kategorisi silinmiş çalışanlar tablodan düşmesin diye sona eklenir
+  const displayAreas: WorkArea[] = [
+    ...workAreaOrder,
+    ...Object.keys(grouped).filter((code) => !workAreaOrder.includes(code)),
+  ];
 
   const getSortedAreaEntries = (area: WorkArea) =>
-    [...grouped[area]].sort((a, b) => {
+    [...(grouped[area] ?? [])].sort((a, b) => {
       const aOrder = a.sortOrder ?? 0;
       const bOrder = b.sortOrder ?? 0;
       if (aOrder !== bOrder) return aOrder - bOrder;
       return a.employee.fullName.localeCompare(b.employee.fullName, 'tr-TR');
     });
 
-  const totalsByArea: Record<WorkArea, number> = {
-    DEPO: 0,
-    URETIM: 0,
-    OFIS: 0,
-    SAHA_ELEMANI: 0,
-    KAYSERI_YATAS: 0,
-    ANKARA_YATAS: 0,
-    ISTANBUL_YATAS: 0,
-    DIGER: 0,
-  };
+  const totalsByArea: Record<string, number> = {};
   // Sum of the "Toplam" column (totalReceivable) across all displayed employees
   entries.forEach((e) => {
-    totalsByArea[e.employee.workArea] += e.totalReceivable;
+    totalsByArea[e.employee.workArea] =
+      (totalsByArea[e.employee.workArea] ?? 0) + e.totalReceivable;
   });
   const grandTotal = entries.reduce((acc, e) => acc + e.totalReceivable, 0);
+
+  // Avanslar özeti: avansı olan çalışanlar, resmi (officialAdvance) ve
+  // gayri resmi (advance) ayrımıyla. Tablo grubu sırasına göre dizilir.
+  const advanceRows = displayAreas.flatMap((area) =>
+    getSortedAreaEntries(area)
+      .filter((e) => (e.advance || 0) > 0 || (e.officialAdvance || 0) > 0)
+      .map((e) => ({
+        employeeId: e.employeeId,
+        name: e.employee.fullName,
+        area: labelOf(e.employee.workArea),
+        official: e.officialAdvance || 0, // R.Avans
+        cash: e.advance || 0, // G.R.Avans
+      }))
+  );
+  const advanceTotals = advanceRows.reduce(
+    (acc, r) => ({ official: acc.official + r.official, cash: acc.cash + r.cash }),
+    { official: 0, cash: 0 }
+  );
 
   const persistGroupOrder = (next: WorkArea[]) => {
     const key = `puantaj_workarea_order_${selectedYear}_${selectedMonth}`;
@@ -185,6 +215,55 @@ export default function PayrollPage() {
     }
   };
 
+  // Excel dosyasını kullanıcıya kaydettirir (mümkünse kayıt yeri seçtirerek)
+  const saveExcelFile = async (workbook: import('exceljs').Workbook, filename: string) => {
+    const buffer = await workbook.xlsx.writeBuffer();
+    const binary = buffer instanceof ArrayBuffer ? buffer : (buffer as ArrayBuffer);
+
+    const pickerWindow = window as Window & {
+      showSaveFilePicker?: (options: {
+        suggestedName: string;
+        types: Array<{ description: string; accept: Record<string, string[]> }>;
+      }) => Promise<{
+        createWritable: () => Promise<{
+          write: (data: BlobPart) => Promise<void>;
+          close: () => Promise<void>;
+        }>;
+      }>;
+    };
+
+    if (pickerWindow.showSaveFilePicker) {
+      const handle = await pickerWindow.showSaveFilePicker({
+        suggestedName: filename,
+        types: [
+          {
+            description: 'Excel File',
+            accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
+          },
+        ],
+      });
+      const writable = await handle.createWritable();
+      await writable.write(binary);
+      await writable.close();
+    } else {
+      const blob = new Blob([binary], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      setTimeout(() => {
+        link.remove();
+      }, 1500);
+      setTimeout(() => {
+        URL.revokeObjectURL(url);
+      }, 60000);
+    }
+  };
+
   const handleExportExcel = async () => {
     try {
       const ExcelJS = await import('exceljs');
@@ -238,11 +317,11 @@ export default function PayrollPage() {
       const cashBaseExpr = (row: number) =>
         `MAX(0,${earnedExpr(row)}-${officialBaseExpr(row)})+MAX(0,$M${row})+MAX(0,$N${row})`;
 
-      workAreaOrder.forEach((area) => {
+      displayAreas.forEach((area) => {
         const areaEntries = getSortedAreaEntries(area);
         if (areaEntries.length === 0) return;
 
-        const groupTitle = worksheet.addRow([`${WORK_AREA_LABELS[area]} Çalışanları (${areaEntries.length} kişi)`]);
+        const groupTitle = worksheet.addRow([`${labelOf(area)} Çalışanları (${areaEntries.length} kişi)`]);
         worksheet.mergeCells(`A${groupTitle.number}:Q${groupTitle.number}`);
         groupTitle.getCell(1).font = { bold: true, size: 12 };
 
@@ -361,7 +440,7 @@ export default function PayrollPage() {
 
         const endDataRow = worksheet.rowCount;
         areaRanges.push({
-          label: WORK_AREA_LABELS[area],
+          label: labelOf(area),
           start: startDataRow,
           end: endDataRow,
         });
@@ -449,51 +528,65 @@ export default function PayrollPage() {
       }
 
       const filename = `puantaj_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
-      const buffer = await workbook.xlsx.writeBuffer();
-      const binary = buffer instanceof ArrayBuffer ? buffer : (buffer as ArrayBuffer);
+      await saveExcelFile(workbook, filename);
+      showToast('Excel indirildi', 'success');
+    } catch {
+      showToast('Excel oluşturulamadı', 'error');
+    }
+  };
 
-      const pickerWindow = window as Window & {
-        showSaveFilePicker?: (options: {
-          suggestedName: string;
-          types: Array<{ description: string; accept: Record<string, string[]> }>;
-        }) => Promise<{
-          createWritable: () => Promise<{
-            write: (data: BlobPart) => Promise<void>;
-            close: () => Promise<void>;
-          }>;
-        }>;
-      };
+  // Avanslar bölümünün kendi Excel çıktısı
+  const handleExportAdvancesExcel = async () => {
+    try {
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet('Avanslar');
+      const moneyFormat = '#,##0.00';
 
-      if (pickerWindow.showSaveFilePicker) {
-        const handle = await pickerWindow.showSaveFilePicker({
-          suggestedName: filename,
-          types: [
-            {
-              description: 'Excel File',
-              accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] },
-            },
-          ],
-        });
-        const writable = await handle.createWritable();
-        await writable.write(binary);
-        await writable.close();
-      } else {
-        const blob = new Blob([binary], {
-          type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => {
-          link.remove();
-        }, 1500);
-        setTimeout(() => {
-          URL.revokeObjectURL(url);
-        }, 60000);
+      worksheet.columns = [{ width: 26 }, { width: 16 }, { width: 14 }, { width: 14 }, { width: 14 }];
+
+      const period = `${MONTH_NAMES[selectedMonth]} ${selectedYear}`;
+      const titleRow = worksheet.addRow([`Avans Listesi - ${period}`]);
+      worksheet.mergeCells(`A${titleRow.number}:E${titleRow.number}`);
+      titleRow.getCell(1).font = { bold: true, size: 14 };
+      worksheet.addRow([]);
+
+      const headerRow = worksheet.addRow(['Çalışan', 'Kategori', 'R.Avans', 'G.R.Avans', 'Toplam']);
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FF334155' } };
+        cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE2E8F0' } };
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        };
+      });
+
+      advanceRows.forEach((r) => {
+        const row = worksheet.addRow([r.name, r.area, r.official, r.cash, r.official + r.cash]);
+        for (let c = 3; c <= 5; c++) {
+          row.getCell(c).numFmt = moneyFormat;
+          row.getCell(c).alignment = { horizontal: 'right' };
+        }
+      });
+
+      const totalRow = worksheet.addRow([
+        'Genel Toplam',
+        '',
+        advanceTotals.official,
+        advanceTotals.cash,
+        advanceTotals.official + advanceTotals.cash,
+      ]);
+      totalRow.eachCell((cell) => (cell.font = { bold: true }));
+      for (let c = 3; c <= 5; c++) {
+        totalRow.getCell(c).numFmt = moneyFormat;
+        totalRow.getCell(c).alignment = { horizontal: 'right' };
       }
+
+      const filename = `avanslar_${selectedYear}_${String(selectedMonth).padStart(2, '0')}.xlsx`;
+      await saveExcelFile(workbook, filename);
       showToast('Excel indirildi', 'success');
     } catch {
       showToast('Excel oluşturulamadı', 'error');
@@ -533,7 +626,7 @@ export default function PayrollPage() {
         <div className="bg-white shadow rounded-lg p-12 text-center text-gray-500">Bu dönem için çalışan bulunmuyor.</div>
       ) : (
         <>
-          {workAreaOrder.map(area => {
+          {displayAreas.map(area => {
             const areaEntries = getSortedAreaEntries(area);
             if (areaEntries.length === 0) return null;
             return (
@@ -556,7 +649,7 @@ export default function PayrollPage() {
                 >
                   <div className="h-6 w-1.5 rounded-full bg-indigo-600" />
                   <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                    {WORK_AREA_LABELS[area]} Çalışanları
+                    {labelOf(area)} Çalışanları
                     <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
                       {areaEntries.length} kişi
                     </span>
@@ -695,13 +788,13 @@ export default function PayrollPage() {
             </div>
             <div className="px-6 py-4">
               <div className="space-y-2">
-                {workAreaOrder
-                  .filter((area) => grouped[area].length > 0)
+                {displayAreas
+                  .filter((area) => (grouped[area]?.length ?? 0) > 0)
                   .map((area) => (
                     <div key={area} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">{WORK_AREA_LABELS[area]}</span>
-                      <span className={`font-semibold ${totalsByArea[area] >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                        {formatCurrency(totalsByArea[area])}
+                      <span className="text-slate-700">{labelOf(area)}</span>
+                      <span className={`font-semibold ${(totalsByArea[area] ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {formatCurrency(totalsByArea[area] ?? 0)}
                       </span>
                     </div>
                   ))}
@@ -713,6 +806,62 @@ export default function PayrollPage() {
                   {formatCurrency(grandTotal)}
                 </span>
               </div>
+            </div>
+          </div>
+
+          {/* Advances summary */}
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 flex items-center justify-between">
+              <h2 className="text-base font-semibold tracking-tight text-slate-900">Avanslar</h2>
+              <button
+                type="button"
+                onClick={handleExportAdvancesExcel}
+                disabled={advanceRows.length === 0}
+                className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50"
+              >
+                Excel'e İndir
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              {advanceRows.length === 0 ? (
+                <div className="text-sm text-gray-500">Bu dönem için avans girilmemiş.</div>
+              ) : (
+                <>
+                  {advanceRows.map((r, index) => (
+                    <div
+                      key={r.employeeId}
+                      className={`flex items-baseline gap-2 text-sm px-2 py-1.5 rounded ${
+                        index % 2 === 1 ? 'bg-slate-50' : ''
+                      } hover:bg-indigo-50`}
+                    >
+                      <span className="text-slate-700 font-medium whitespace-nowrap">{r.name}</span>
+                      <span className="px-2 py-0.5 text-[11px] rounded-full bg-slate-100 text-slate-600 font-medium whitespace-nowrap ring-1 ring-slate-200">
+                        {r.area}
+                      </span>
+                      <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
+                      <span className="font-semibold whitespace-nowrap">
+                        <span className="text-blue-600">R.Avans: {formatCurrency(r.official)}</span>
+                        {' · '}
+                        <span className="text-orange-600">G.R.Avans: {formatCurrency(r.cash)}</span>
+                        {' · '}
+                        <span className="text-green-700">Toplam: {formatCurrency(r.official + r.cash)}</span>
+                      </span>
+                    </div>
+                  ))}
+
+                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-baseline gap-2 px-2">
+                    <span className="text-slate-900 font-semibold whitespace-nowrap">Genel Toplam</span>
+                    <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
+                    <span className="font-bold whitespace-nowrap">
+                      <span className="text-blue-600">R.Avans: {formatCurrency(advanceTotals.official)}</span>
+                      {' · '}
+                      <span className="text-orange-600">G.R.Avans: {formatCurrency(advanceTotals.cash)}</span>
+                      {' · '}
+                      <span className="text-green-700">Toplam: {formatCurrency(advanceTotals.official + advanceTotals.cash)}</span>
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </>

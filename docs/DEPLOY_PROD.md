@@ -51,6 +51,25 @@ Bu projede seed, varsayılan kullanıcıları oluşturur:
 - `admin / admin123`
 - `user / user123`
 
+> ⚠️ Bu şifreler herkese açık dokümanda yazılı. İlk girişten sonra **mutlaka değiştir**.
+
+---
+
+## 3.1) Zorunlu ortam değişkenleri
+
+Backend prod'da şunlar olmadan **açılmaz veya dışarıdan erişilemez**:
+
+| Değişken | Zorunlu | Açıklama |
+|---|---|---|
+| `DATABASE_URL` | Evet | PostgreSQL bağlantısı |
+| `JWT_SECRET` | Evet (prod) | En az 32 karakter. Yoksa uygulama başlamaz. |
+| `CORS_ORIGIN` | Evet | Frontend adresi, örn. `https://puantaj.ornek.com`. Virgülle birden fazla verilebilir. Tanımsızsa sadece `http://localhost:5173` kabul edilir. |
+| `NODE_ENV` | Evet | `production` olmalı |
+| `PORT` | Hayır | Varsayılan 3000 |
+| `OFFICIAL_WAGE_BASE` | Hayır | Resmi ödeme tabanı. Tanımsızsa 28075. Asgari ücret değişince burayı güncelle. |
+
+Tam liste ve örnekler: `backend/.env.example`
+
 ---
 
 ## 4) Prod’da KULLANMA (veri kaybettirir)

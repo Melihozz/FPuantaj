@@ -1,6 +1,8 @@
 import { z } from 'zod';
+import { Prisma, Employee } from '@prisma/client';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
+import { calculateOfficialAndCash } from './payroll.service';
 
 export const createOvertimeEntrySchema = z.object({
   employeeId: z.string().min(1, 'Çalışan zorunludur'),
@@ -18,19 +20,37 @@ export const createOvertimeEntrySchema = z.object({
 
 export type CreateOvertimeEntryInput = z.infer<typeof createOvertimeEntrySchema>;
 
-export function validateCreateOvertimeEntryInput(
-  input: unknown
-): { success: true; data: CreateOvertimeEntryInput } | { success: false; errors: Record<string, string[]> } {
-  const result = createOvertimeEntrySchema.safeParse(input);
-  if (result.success) return { success: true, data: result.data };
+export const bulkCreateOvertimeSchema = z
+  .array(createOvertimeEntrySchema)
+  .min(1, 'En az bir mesai kaydı gereklidir')
+  .max(200, 'Tek seferde en fazla 200 mesai kaydı eklenebilir');
 
+export type BulkCreateOvertimeInput = z.infer<typeof bulkCreateOvertimeSchema>;
+
+function zodErrorsToMap(result: z.SafeParseError<unknown>): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
   for (const error of result.error.errors) {
     const field = error.path.join('.');
     if (!errors[field]) errors[field] = [];
     errors[field].push(error.message);
   }
-  return { success: false, errors };
+  return errors;
+}
+
+export function validateCreateOvertimeEntryInput(
+  input: unknown
+): { success: true; data: CreateOvertimeEntryInput } | { success: false; errors: Record<string, string[]> } {
+  const result = createOvertimeEntrySchema.safeParse(input);
+  if (result.success) return { success: true, data: result.data };
+  return { success: false, errors: zodErrorsToMap(result) };
+}
+
+export function validateBulkCreateOvertimeInput(
+  input: unknown
+): { success: true; data: BulkCreateOvertimeInput } | { success: false; errors: Record<string, string[]> } {
+  const result = bulkCreateOvertimeSchema.safeParse(input);
+  if (result.success) return { success: true, data: result.data };
+  return { success: false, errors: zodErrorsToMap(result) };
 }
 
 export async function listOvertimeEntries(month: number, year: number, employeeId?: string) {
@@ -54,19 +74,21 @@ export async function listOvertimeEntries(month: number, year: number, employeeI
   });
 }
 
-export async function createOvertimeEntry(input: CreateOvertimeEntryInput) {
-  const employee = await prisma.employee.findUnique({ where: { id: input.employeeId } });
-  if (!employee) {
-    throw new AppError(404, 'EMPLOYEE_NOT_FOUND', 'Çalışan bulunamadı');
-  }
-
-  const payrollUpdateData =
-    input.type === 'OVERTIME_50'
-      ? { overtime50: { increment: input.amount } }
-      : { overtime100: { increment: input.amount } };
-
-  const [entry] = await prisma.$transaction([
-    prisma.overtimeEntry.create({
+/**
+ * Tek bir mesai kaydını transaction içinde oluşturur ve payroll'u günceller.
+ *
+ * Hem tekli hem toplu ekleme BU fonksiyondan geçer - hesaplama yolunun
+ * tek olması, iki akışın asla farklı sonuç üretmemesini garanti eder.
+ * Aynı çalışana ait ardışık kayıtlarda ikinci okuma, transaction içindeki
+ * ilk yazımı görür; mesailer doğru birikir.
+ */
+async function createEntryInTx(
+  tx: Prisma.TransactionClient,
+  employee: Employee,
+  input: CreateOvertimeEntryInput
+) {
+  {
+    const entry = await tx.overtimeEntry.create({
       data: {
         employeeId: input.employeeId,
         entryDate: new Date(input.entryDate),
@@ -79,8 +101,9 @@ export async function createOvertimeEntry(input: CreateOvertimeEntryInput) {
         description: input.description?.trim() || null,
       },
       include: { employee: true },
-    }),
-    prisma.payrollEntry.upsert({
+    });
+
+    const existing = await tx.payrollEntry.findUnique({
       where: {
         employeeId_month_year: {
           employeeId: input.employeeId,
@@ -88,24 +111,102 @@ export async function createOvertimeEntry(input: CreateOvertimeEntryInput) {
           year: input.year,
         },
       },
-      update: payrollUpdateData,
+    });
+
+    const delta50 = input.type === 'OVERTIME_50' ? input.amount : 0;
+    const delta100 = input.type === 'OVERTIME_100' ? input.amount : 0;
+
+    const nextOvertime50 = (existing?.overtime50 ?? 0) + delta50;
+    const nextOvertime100 = (existing?.overtime100 ?? 0) + delta100;
+    const daysWorked = existing?.daysWorked ?? employee.workingDays;
+    const advance = existing?.advance ?? 0;
+    const officialAdvance = existing?.officialAdvance ?? 0;
+
+    // Mesai elden ödeme tabanını büyütür; dağılımı yeniden hesapla ki
+    // kayıtlı officialPayment/cashPayment kolonları bayat kalmasın.
+    const split = calculateOfficialAndCash(
+      employee.isInsured,
+      employee.salary,
+      employee.workingDays,
+      daysWorked,
+      nextOvertime50,
+      nextOvertime100,
+      advance,
+      officialAdvance
+    );
+
+    await tx.payrollEntry.upsert({
+      where: {
+        employeeId_month_year: {
+          employeeId: input.employeeId,
+          month: input.month,
+          year: input.year,
+        },
+      },
+      update: {
+        overtime50: nextOvertime50,
+        overtime100: nextOvertime100,
+        officialPayment: split.officialPayment,
+        cashPayment: split.cashPayment,
+      },
       create: {
         employeeId: input.employeeId,
         month: input.month,
         year: input.year,
         sortOrder: 0,
-        daysWorked: employee.workingDays,
+        daysWorked,
         advance: 0,
         officialAdvance: 0,
-        overtime50: input.type === 'OVERTIME_50' ? input.amount : 0,
-        overtime100: input.type === 'OVERTIME_100' ? input.amount : 0,
-        officialPayment: 0,
-        cashPayment: 0,
+        overtime50: nextOvertime50,
+        overtime100: nextOvertime100,
+        officialPayment: split.officialPayment,
+        cashPayment: split.cashPayment,
       },
-    }),
-  ]);
+    });
 
-  return entry;
+    return entry;
+  }
+}
+
+export async function createOvertimeEntry(input: CreateOvertimeEntryInput) {
+  const employee = await prisma.employee.findUnique({ where: { id: input.employeeId } });
+  if (!employee) {
+    throw new AppError(404, 'EMPLOYEE_NOT_FOUND', 'Çalışan bulunamadı');
+  }
+
+  return prisma.$transaction((tx) => createEntryInTx(tx, employee, input));
+}
+
+/**
+ * Toplu mesai ekleme: tüm kayıtlar TEK transaction'da işlenir.
+ * Biri hata verirse hiçbiri yazılmaz (kısmi kayıt kalmaz).
+ * Her satır tekli eklemeyle aynı createEntryInTx yolundan geçer;
+ * aynı çalışana hem %50 hem %100 satırı sorunsuz birikir.
+ */
+export async function createOvertimeEntriesBulk(inputs: BulkCreateOvertimeInput) {
+  const employeeIds = Array.from(new Set(inputs.map((i) => i.employeeId)));
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds } },
+  });
+  const employeeMap = new Map(employees.map((emp) => [emp.id, emp]));
+
+  for (const input of inputs) {
+    if (!employeeMap.has(input.employeeId)) {
+      throw new AppError(404, 'EMPLOYEE_NOT_FOUND', `Çalışan bulunamadı: ${input.employeeId}`);
+    }
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      const results = [];
+      for (const input of inputs) {
+        results.push(await createEntryInTx(tx, employeeMap.get(input.employeeId)!, input));
+      }
+      return results;
+    },
+    // Çok satırlı ekleme varsayılan 5sn'yi aşabilir
+    { timeout: 20000 }
+  );
 }
 
 export async function getOvertimeEntryById(id: string) {
@@ -121,20 +222,50 @@ export async function getOvertimeEntryById(id: string) {
 
 export async function deleteOvertimeEntry(id: string) {
   const entry = await getOvertimeEntryById(id);
-  const payrollUpdateData =
-    entry.type === 'OVERTIME_50'
-      ? { overtime50: { decrement: entry.amount } }
-      : { overtime100: { decrement: entry.amount } };
 
-  await prisma.$transaction([
-    prisma.overtimeEntry.delete({ where: { id } }),
-    prisma.payrollEntry.updateMany({
+  await prisma.$transaction(async (tx) => {
+    await tx.overtimeEntry.delete({ where: { id } });
+
+    const existing = await tx.payrollEntry.findUnique({
       where: {
-        employeeId: entry.employeeId,
-        month: entry.month,
-        year: entry.year,
+        employeeId_month_year: {
+          employeeId: entry.employeeId,
+          month: entry.month,
+          year: entry.year,
+        },
       },
-      data: payrollUpdateData,
-    }),
-  ]);
+    });
+
+    // Puantaj kaydı yoksa düşülecek bir şey de yok
+    if (!existing) {
+      return;
+    }
+
+    const delta50 = entry.type === 'OVERTIME_50' ? entry.amount : 0;
+    const delta100 = entry.type === 'OVERTIME_100' ? entry.amount : 0;
+
+    const nextOvertime50 = existing.overtime50 - delta50;
+    const nextOvertime100 = existing.overtime100 - delta100;
+
+    const split = calculateOfficialAndCash(
+      entry.employee.isInsured,
+      entry.employee.salary,
+      entry.employee.workingDays,
+      existing.daysWorked,
+      nextOvertime50,
+      nextOvertime100,
+      existing.advance,
+      existing.officialAdvance
+    );
+
+    await tx.payrollEntry.update({
+      where: { id: existing.id },
+      data: {
+        overtime50: nextOvertime50,
+        overtime100: nextOvertime100,
+        officialPayment: split.officialPayment,
+        cashPayment: split.cashPayment,
+      },
+    });
+  });
 }

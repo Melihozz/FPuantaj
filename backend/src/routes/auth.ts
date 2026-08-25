@@ -1,10 +1,30 @@
 import { Router, Request, Response, NextFunction } from 'express';
+import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { login, getCurrentUser } from '../services/auth.service';
 import { authenticate } from '../middleware/auth';
 import { AppError } from '../middleware/errorHandler';
 
 export const authRouter = Router();
+
+/**
+ * Brute-force koruması: IP başına 15 dakikada 10 başarısız deneme.
+ * Başarılı girişler sayaca yazılmaz, böylece normal kullanıcı engellenmez.
+ */
+const loginRateLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  skipSuccessfulRequests: true,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req: Request, res: Response) => {
+    res.status(429).json({
+      status: 429,
+      code: 'TOO_MANY_REQUESTS',
+      message: 'Çok fazla başarısız giriş denemesi. Lütfen 15 dakika sonra tekrar deneyin.',
+    });
+  },
+});
 
 // Validation schemas
 const loginSchema = z.object({
@@ -16,7 +36,7 @@ const loginSchema = z.object({
  * POST /api/auth/login
  * Login with username and password
  */
-authRouter.post('/login', async (req: Request, res: Response, next: NextFunction) => {
+authRouter.post('/login', loginRateLimiter, async (req: Request, res: Response, next: NextFunction) => {
   try {
     const validation = loginSchema.safeParse(req.body);
     

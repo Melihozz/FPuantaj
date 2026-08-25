@@ -79,6 +79,19 @@ export async function createOvertime(input: CreateOvertimeInput): Promise<Overti
   return handleResponse<OvertimeEntry>(response);
 }
 
+/**
+ * Toplu mesai ekleme - tüm kayıtlar backend'de tek transaction'da işlenir,
+ * biri hatalıysa hiçbiri kaydedilmez.
+ */
+export async function createOvertimeBulk(inputs: CreateOvertimeInput[]): Promise<OvertimeEntry[]> {
+  const response = await fetch(`${API_BASE_URL}/overtime/batch`, {
+    method: 'POST',
+    headers: createHeaders(),
+    body: JSON.stringify(inputs),
+  });
+  return handleResponse<OvertimeEntry[]>(response);
+}
+
 export async function deleteOvertime(id: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/overtime/${id}`, {
     method: 'DELETE',

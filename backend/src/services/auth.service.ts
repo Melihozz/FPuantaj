@@ -1,11 +1,40 @@
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = getJwtSecret();
 const JWT_EXPIRES_IN = '24h';
 const SALT_ROUNDS = 10;
+
+/**
+ * JWT secret'ı env'den okur.
+ * Prod'da tanımsızsa uygulama açılmamalı - sabit bir fallback secret,
+ * repoyu gören herkesin geçerli token üretebilmesi demektir.
+ */
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+
+  if (secret && secret.length >= 32) {
+    return secret;
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      secret
+        ? 'JWT_SECRET en az 32 karakter olmalıdır'
+        : 'JWT_SECRET tanımlı değil. Bkz. .env.example'
+    );
+  }
+
+  // Development: her açılışta yeni secret üretilir (eski tokenlar geçersiz olur)
+  console.warn(
+    '[auth] JWT_SECRET tanımlı değil veya çok kısa. ' +
+      'Development için geçici secret üretildi; her restart sonrası tekrar giriş gerekir.'
+  );
+  return randomBytes(48).toString('hex');
+}
 
 export interface TokenPayload {
   userId: string;

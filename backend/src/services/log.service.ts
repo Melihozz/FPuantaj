@@ -10,7 +10,7 @@ import { AppError } from '../middleware/errorHandler';
 
 // Types
 export type ActionType = 'CREATE' | 'UPDATE' | 'DELETE';
-export type EntityType = 'EMPLOYEE' | 'PAYROLL' | 'TRAFFIC_FINE';
+export type EntityType = 'EMPLOYEE' | 'PAYROLL' | 'TRAFFIC_FINE' | 'CATEGORY';
 
 export interface FieldChange {
   field: string;

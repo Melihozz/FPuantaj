@@ -136,6 +136,9 @@ function getEntityName(entityType: EntityType, data: Record<string, unknown>): s
     const employeeName = employee?.fullName || 'Unknown';
     return `${employeeName} - Trafik Cezası`;
   }
+  if (entityType === 'CATEGORY') {
+    return (data?.label as string) || 'Unknown Category';
+  }
   return 'Unknown';
 }
 

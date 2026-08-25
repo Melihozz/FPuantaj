@@ -49,13 +49,24 @@ Backend dizinine geç:
 cd /Users/oz/Desktop/Puantaj/backend
 ```
 
-DB bağlantısını env ile ver:
+Env dosyasını hazırla:
 
 ```bash
-export DATABASE_URL="postgresql://oz@localhost:5432/puantaj_dev?schema=public"
+cp .env.example .env
 ```
 
-> `oz` kısmı senin Mac kullanıcı/role adın. Postgres.app’de görünen role farklıysa onu yaz.
+`.env` içinde en az şunları doldur:
+
+- `DATABASE_URL` — örn. `postgresql://oz@localhost:5432/puantaj_dev?schema=public`
+  (`oz` kısmı senin Mac kullanıcı/role adın. Postgres.app’de görünen role farklıysa onu yaz.)
+- `JWT_SECRET` — en az 32 karakter. Üretmek için:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
+
+> Local'de `JWT_SECRET` boş bırakılırsa uygulama açılır ama her restart'ta yeni secret üretir;
+> yani her restart sonrası tekrar login olman gerekir. Prod'da boş bırakılamaz, uygulama açılmaz.
 
 ---
 

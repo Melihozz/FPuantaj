@@ -13,7 +13,9 @@ Excel'de tutulan puantaj tablosunu web ortamına taşıyan, Excel benzeri tablo 
 - **Kimlik_Doğrulama_Modülü**: Kullanıcı giriş ve yetkilendirme modülü
 - **Günlük_Ücret**: Maaş / 30 formülü ile hesaplanan günlük çalışma ücreti
 - **Hak_Edilen_Maaş**: Günlük ücret × Çalıştığı gün sayısı
-- **Toplam_Alacak**: Hak edilen maaş + %50 mesai + %100 mesai - Avans - Resmi ödeme - Elden ödeme
+- **Toplam_Alacak**: Hak edilen maaş + %50 mesai + %100 mesai - Avans
+- **Resmi_Ödeme / Elden_Ödeme**: Toplam alacağın **dağılımıdır**, ayrı bir kesinti değildir. Sigortalı çalışanda resmi taban (28.075 TL / 30 gün × çalışılan gün) resmi kanaldan, kalanı + mesailer elden kanaldan ödenir. Sigortasızda tamamı eldendir. Bu yüzden toplam alacaktan **düşülmezler**.
+- **Avans / Resmi_Avans**: İki ayrı kanaldan düşülen ön ödemeler. Her biri kendi kanalının tabanını aşamaz ve diğer kanala taşmaz.
 
 ## Requirements
 
@@ -75,7 +77,9 @@ Excel'de tutulan puantaj tablosunu web ortamına taşıyan, Excel benzeri tablo 
 
 1. THE Puantaj_Tablosu SHALL günlük ücreti "Maaş / 30" formülü ile otomatik hesaplamalı
 2. THE Puantaj_Tablosu SHALL hak edilen maaşı "Günlük ücret × Çalıştığı gün sayısı" formülü ile otomatik hesaplamalı
-3. THE Puantaj_Tablosu SHALL toplam alacağı "Hak edilen maaş + %50 mesai + %100 mesai - Avans - Resmi ödeme - Elden ödeme" formülü ile otomatik hesaplamalı
+3. THE Puantaj_Tablosu SHALL toplam alacağı "Hak edilen maaş + %50 mesai + %100 mesai - Avans (elden + resmi)" formülü ile otomatik hesaplamalı
+   - Resmi ve elden ödemeler bu toplamın dağılımıdır; toplamdan düşülmezler (bkz. Glossary)
+   - Doğrulayan test: `backend/src/services/calculation.service.test.ts`
 4. WHEN herhangi bir girdi değeri değişir THEN Puantaj_Tablosu SHALL ilgili hesaplamaları anında güncellemeli
 5. THE Puantaj_Tablosu SHALL hesaplama formüllerini güncellenebilir şekilde esnek tasarlamalı
 

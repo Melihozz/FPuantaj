@@ -19,10 +19,24 @@ model User {
   auditLogs    AuditLog[]
 }
 
+/// Çalışma alanı (kategori) tanımları - kullanıcı tarafından yönetilir.
+/// Employee.workArea bu tablodaki `code` değerini tutar (foreign key değil,
+/// böylece kategori silinse bile geçmiş çalışan kaydı bozulmaz).
+model WorkAreaCategory {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  label     String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
 model Employee {
   id             String         @id @default(uuid())
   fullName       String
-  workArea       String         // DEPO | URETIM | OFIS | DIGER
+  workArea       String         // WorkAreaCategory.code
   isInsured      Boolean        @default(false)
   startDate      DateTime
   endDate        DateTime?

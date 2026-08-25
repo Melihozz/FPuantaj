@@ -1,15 +1,12 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 // Types
-export type WorkArea =
-  | 'DEPO'
-  | 'URETIM'
-  | 'OFIS'
-  | 'SAHA_ELEMANI'
-  | 'KAYSERI_YATAS'
-  | 'ANKARA_YATAS'
-  | 'ISTANBUL_YATAS'
-  | 'DIGER';
+/**
+ * Çalışma alanı kodu. Sabit bir liste değildir: kategoriler Tanımlamalar >
+ * Kategoriler sayfasından yönetilir. Görünen adlar için CategoryContext'teki
+ * labelOf() kullanılır.
+ */
+export type WorkArea = string;
 
 export interface Employee {
   id: string;
@@ -146,17 +143,6 @@ export async function deleteEmployee(id: string): Promise<void> {
   await handleResponse<void>(response);
 }
 
-// Work area display names
-export const WORK_AREA_LABELS: Record<WorkArea, string> = {
-  DEPO: 'Depo',
-  URETIM: 'Üretim',
-  OFIS: 'Ofis',
-  SAHA_ELEMANI: 'İstanbul Saha',
-  KAYSERI_YATAS: 'Kayseri Yataş',
-  ANKARA_YATAS: 'Ankara Yataş',
-  ISTANBUL_YATAS: 'İstanbul Yataş',
-  DIGER: 'Diğer',
-};
 
 // Helper to check if error is an ApiError
 export function isApiError(error: unknown): error is ApiError {

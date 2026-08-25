@@ -5,10 +5,12 @@ import { auditLogMiddleware, captureOldData } from '../middleware/auditLog';
 import prisma from '../utils/prisma';
 import {
   createOvertimeEntry,
+  createOvertimeEntriesBulk,
   deleteOvertimeEntry,
   getOvertimeEntryById,
   listOvertimeEntries,
   validateCreateOvertimeEntryInput,
+  validateBulkCreateOvertimeInput,
 } from '../services/overtime.service';
 
 export const overtimeRouter = Router();
@@ -68,6 +70,42 @@ overtimeRouter.post('/', auditLogMiddleware('PAYROLL'), async (req: Request, res
       },
     };
     res.status(201).json(entry);
+  } catch (error) {
+    next(error);
+  }
+});
+
+/**
+ * POST /api/overtime/batch
+ * Toplu mesai ekleme - tüm kayıtlar tek transaction'da.
+ */
+overtimeRouter.post('/batch', auditLogMiddleware('PAYROLL'), async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const validation = validateBulkCreateOvertimeInput(req.body);
+    if (!validation.success) {
+      throw new AppError(400, 'VALIDATION_ERROR', 'Geçersiz veri', validation.errors);
+    }
+
+    const entries = await createOvertimeEntriesBulk(validation.data);
+
+    const first = entries[0];
+    if (first) {
+      req.auditLog = {
+        entityType: 'PAYROLL',
+        entityId: `OVERTIME_BATCH_${first.year}_${first.month}`,
+        entityName: `Mesai - ${first.month}/${first.year} (Toplu, ${entries.length} kayıt)`,
+        actionOverride: 'UPDATE',
+        newData: {
+          month: first.month,
+          year: first.year,
+          count: entries.length,
+          totalAmount: entries.reduce((acc, e) => acc + e.amount, 0),
+          employees: Array.from(new Set(entries.map((e) => e.employee.fullName))),
+        },
+      };
+    }
+
+    res.status(201).json(entries);
   } catch (error) {
     next(error);
   }

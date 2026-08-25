@@ -2,26 +2,16 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 
-// Valid work areas
-export const WorkArea = {
-  DEPO: 'DEPO',
-  URETIM: 'URETIM',
-  OFIS: 'OFIS',
-  SAHA_ELEMANI: 'SAHA_ELEMANI',
-  KAYSERI_YATAS: 'KAYSERI_YATAS',
-  ANKARA_YATAS: 'ANKARA_YATAS',
-  ISTANBUL_YATAS: 'ISTANBUL_YATAS',
-  DIGER: 'DIGER',
-} as const;
-
-export type WorkAreaType = (typeof WorkArea)[keyof typeof WorkArea];
+export type WorkAreaType = string;
 
 // Zod validation schemas
+//
+// workArea artık sabit bir enum değil: geçerli değerler WorkAreaCategory
+// tablosundan gelir. Şema sadece biçimi kontrol eder, gerçek doğrulama
+// assertWorkAreaExists ile DB'ye karşı yapılır.
 export const createEmployeeSchema = z.object({
   fullName: z.string().min(1, 'Ad soyad zorunludur').max(255, 'Ad soyad çok uzun'),
-  workArea: z.enum(['DEPO', 'URETIM', 'OFIS', 'SAHA_ELEMANI', 'KAYSERI_YATAS', 'ANKARA_YATAS', 'ISTANBUL_YATAS', 'DIGER'], {
-    errorMap: () => ({ message: 'Geçersiz çalışma alanı' }),
-  }),
+  workArea: z.string().min(1, 'Çalışma alanı zorunludur'),
   isInsured: z.boolean().default(false),
   startDate: z.string().refine((val) => !isNaN(Date.parse(val)), {
     message: 'Geçerli bir tarih giriniz',
@@ -83,11 +73,27 @@ export async function getEmployeeById(id: string): Promise<EmployeeResponse> {
 }
 
 /**
+ * Çalışma alanının tanımlı bir kategori olduğunu doğrular.
+ * Kategoriler kullanıcı tarafından yönetildiği için bu kontrol DB'ye karşı yapılır.
+ */
+async function assertWorkAreaExists(workArea: string): Promise<void> {
+  const category = await prisma.workAreaCategory.findUnique({
+    where: { code: workArea },
+  });
+  if (!category) {
+    throw new AppError(400, 'VALIDATION_ERROR', 'Geçersiz çalışma alanı', {
+      workArea: ['Seçilen kategori bulunamadı. Kategoriler sayfasından tanımlayabilirsiniz.'],
+    });
+  }
+}
+
+/**
  * Create a new employee
  */
 export async function createEmployee(input: CreateEmployeeInput): Promise<EmployeeResponse> {
   // Validate input
   const validatedData = createEmployeeSchema.parse(input);
+  await assertWorkAreaExists(validatedData.workArea);
 
   const employee = await prisma.employee.create({
     data: {
@@ -122,6 +128,9 @@ export async function updateEmployee(
 
   // Validate input
   const validatedData = updateEmployeeSchema.parse(input);
+  if (validatedData.workArea !== undefined) {
+    await assertWorkAreaExists(validatedData.workArea);
+  }
 
   // Build update data
   const updateData: Record<string, unknown> = {};

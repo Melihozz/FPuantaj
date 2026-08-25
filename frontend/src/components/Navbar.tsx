@@ -1,30 +1,62 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+
+interface NavItem {
+  path: string;
+  label: string;
+}
 
 export default function Navbar() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isDefsMenuOpen, setIsDefsMenuOpen] = useState(false);
+  const defsMenuRef = useRef<HTMLDivElement>(null);
 
-  const navItems = [
+  const navItems: NavItem[] = [
     { path: '/', label: 'Puantaj' },
-    { path: '/calisanlar', label: 'Çalışanlar' },
     { path: '/mesailer', label: 'Mesailer' },
     { path: '/log', label: 'İşlem Geçmişi' },
   ];
 
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
+  // "Tanımlamalar" altındaki yönetim sayfaları
+  const definitionItems: NavItem[] = [
+    { path: '/calisanlar', label: 'Çalışanlar' },
+    { path: '/kategoriler', label: 'Kategoriler' },
+  ];
 
-  const toggleMobileMenu = () => {
-    setIsMobileMenuOpen(!isMobileMenuOpen);
-  };
+  const isActive = (path: string) => location.pathname === path;
+  const isDefinitionsActive = definitionItems.some((item) => isActive(item.path));
 
-  const closeMobileMenu = () => {
-    setIsMobileMenuOpen(false);
-  };
+  const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
+  const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  // Dışarı tıklayınca veya Esc ile açılır menüyü kapat
+  useEffect(() => {
+    if (!isDefsMenuOpen) return;
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (defsMenuRef.current && !defsMenuRef.current.contains(event.target as Node)) {
+        setIsDefsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsDefsMenuOpen(false);
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isDefsMenuOpen]);
+
+  // Sayfa değişince menüyü kapat
+  useEffect(() => {
+    setIsDefsMenuOpen(false);
+  }, [location.pathname]);
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200">
@@ -48,14 +80,57 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
+
+              {/* Tanımlamalar açılır menüsü */}
+              <div className="relative flex items-center" ref={defsMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsDefsMenuOpen((open) => !open)}
+                  aria-expanded={isDefsMenuOpen}
+                  aria-haspopup="true"
+                  className={`inline-flex items-center gap-1 px-1 pt-1 h-full border-b-2 text-sm font-medium ${
+                    isDefinitionsActive
+                      ? 'border-indigo-500 text-gray-900'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  }`}
+                >
+                  Tanımlamalar
+                  <svg
+                    className={`h-4 w-4 transition-transform ${isDefsMenuOpen ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {isDefsMenuOpen && (
+                  <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 py-1">
+                    {definitionItems.map((item) => (
+                      <Link
+                        key={item.path}
+                        to={item.path}
+                        onClick={() => setIsDefsMenuOpen(false)}
+                        className={`block px-4 py-2 text-sm ${
+                          isActive(item.path)
+                            ? 'bg-indigo-50 text-indigo-700 font-medium'
+                            : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        {item.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-          
+
           {/* Desktop user info and logout */}
           <div className="hidden sm:flex items-center">
-            <span className="text-sm text-gray-600 mr-4">
-              {user?.username}
-            </span>
+            <span className="text-sm text-gray-600 mr-4">{user?.username}</span>
             <button
               onClick={logout}
               className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
@@ -102,7 +177,29 @@ export default function Navbar() {
               {item.label}
             </Link>
           ))}
+
+          {/* Mobilde Tanımlamalar başlık + alt bağlantılar olarak düz görünür */}
+          <div className="pt-2 mt-2 border-t border-gray-100">
+            <div className="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
+              Tanımlamalar
+            </div>
+            {definitionItems.map((item) => (
+              <Link
+                key={item.path}
+                to={item.path}
+                onClick={closeMobileMenu}
+                className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
+                  isActive(item.path)
+                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
+                    : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
+          </div>
         </div>
+
         {/* Mobile user info and logout */}
         <div className="pt-4 pb-3 border-t border-gray-200">
           <div className="flex items-center px-4">

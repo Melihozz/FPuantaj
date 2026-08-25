@@ -2,6 +2,10 @@ import { z } from 'zod';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
 import { calculatePayroll, CalculationResult } from './calculation.service';
+import {
+  FIXED_OFFICIAL_PAYMENT,
+  OFFICIAL_WORKING_DAYS_BASE,
+} from '../config/payroll.config';
 
 /**
  * Payroll Service
@@ -40,9 +44,6 @@ export const batchUpdateSchema = z.array(
 
 export type UpdatePayrollInput = z.infer<typeof updatePayrollSchema>;
 export type BatchUpdateInput = z.infer<typeof batchUpdateSchema>;
-
-const FIXED_OFFICIAL_PAYMENT = 28075;
-const OFFICIAL_WORKING_DAYS_BASE = 30;
 
 // Payroll response type with calculated fields
 export interface PayrollEntryResponse {
@@ -107,7 +108,11 @@ function calculatePayrollFields(
   });
 }
 
-function calculateOfficialAndCash(
+/**
+ * Resmi/elden ödeme dağılımını hesaplar.
+ * Saf fonksiyon - DB'ye dokunmaz, test edilebilir (export edilme sebebi budur).
+ */
+export function calculateOfficialAndCash(
   isInsured: boolean,
   salary: number,
   workingDays: number,
@@ -282,8 +287,11 @@ export async function getPayrollByMonth(
     }));
 
   if (entriesToCreate.length > 0) {
+    // skipDuplicates: aynı dönem için eşzamanlı iki istek gelirse
+    // (employeeId, month, year) unique kısıtına takılıp 500 dönmesin
     await prisma.payrollEntry.createMany({
       data: entriesToCreate,
+      skipDuplicates: true,
     });
   }
 
@@ -437,25 +445,82 @@ export async function batchUpdatePayroll(
   // Validate input
   const validatedData = batchUpdateSchema.parse(entries);
 
-  const results: PayrollEntryResponse[] = [];
+  if (validatedData.length === 0) {
+    return [];
+  }
 
-  for (const entry of validatedData) {
-    // Check if employee exists
-    const employee = await prisma.employee.findUnique({
-      where: { id: entry.employeeId },
-    });
+  // Çalışanları tek sorguda çek (sürükle-bırak sıralamada 20+ round-trip yerine 1)
+  const employeeIds = Array.from(new Set(validatedData.map((e) => e.employeeId)));
+  const employees = await prisma.employee.findMany({
+    where: { id: { in: employeeIds } },
+  });
+  const employeeMap = new Map(employees.map((emp) => [emp.id, emp]));
 
-    if (!employee) {
-      throw new AppError(404, 'EMPLOYEE_NOT_FOUND', `Çalışan bulunamadı: ${entry.employeeId}`);
-    }
+  // Tümü ya yazılır ya hiçbiri: yarıda kalan kısmi güncelleme olmasın
+  return prisma.$transaction(
+    async (tx) => {
+      const results: PayrollEntryResponse[] = [];
 
-    const shouldRecalculateSplit =
-      entry.daysWorked !== undefined ||
-      entry.advance !== undefined ||
-      entry.officialAdvance !== undefined;
+      for (const entry of validatedData) {
+        // Check if employee exists
+        const employee = employeeMap.get(entry.employeeId);
 
-    const existing = shouldRecalculateSplit
-      ? await prisma.payrollEntry.findUnique({
+        if (!employee) {
+          throw new AppError(404, 'EMPLOYEE_NOT_FOUND', `Çalışan bulunamadı: ${entry.employeeId}`);
+        }
+
+        const shouldRecalculateSplit =
+          entry.daysWorked !== undefined ||
+          entry.advance !== undefined ||
+          entry.officialAdvance !== undefined;
+
+        const existing = shouldRecalculateSplit
+          ? await tx.payrollEntry.findUnique({
+              where: {
+                employeeId_month_year: {
+                  employeeId: entry.employeeId,
+                  month: entry.month,
+                  year: entry.year,
+                },
+              },
+            })
+          : null;
+
+        const nextDaysWorked = entry.daysWorked ?? existing?.daysWorked ?? 0;
+        const nextOvertime50 = entry.overtime50 ?? existing?.overtime50 ?? 0;
+        const nextOvertime100 = entry.overtime100 ?? existing?.overtime100 ?? 0;
+        const earned = Math.max(0, (employee.salary / employee.workingDays) * nextDaysWorked);
+        const officialDaily = FIXED_OFFICIAL_PAYMENT / OFFICIAL_WORKING_DAYS_BASE;
+        const baseOfficial = employee.isInsured
+          ? Math.min(earned, Math.max(0, officialDaily * nextDaysWorked))
+          : 0;
+        const baseCash = Math.max(0, earned - baseOfficial) + Math.max(0, nextOvertime50) + Math.max(0, nextOvertime100);
+
+        const nextCashAdvance = Math.min(
+          Math.max(0, entry.advance ?? existing?.advance ?? 0),
+          baseCash
+        );
+        const nextOfficialAdvance = employee.isInsured
+          ? Math.min(
+              Math.max(0, entry.officialAdvance ?? (existing as { officialAdvance?: number } | null)?.officialAdvance ?? 0),
+              baseOfficial
+            )
+          : 0;
+
+        const split = shouldRecalculateSplit
+          ? calculateOfficialAndCash(
+              employee.isInsured,
+              employee.salary,
+              employee.workingDays,
+              nextDaysWorked,
+              nextOvertime50,
+              nextOvertime100,
+              nextCashAdvance,
+              nextOfficialAdvance
+            )
+          : null;
+
+        const upsertedEntry = await tx.payrollEntry.upsert({
           where: {
             employeeId_month_year: {
               employeeId: entry.employeeId,
@@ -463,84 +528,43 @@ export async function batchUpdatePayroll(
               year: entry.year,
             },
           },
-        })
-      : null;
+          update: {
+            daysWorked: entry.daysWorked ?? undefined,
+            advance: entry.advance !== undefined ? nextCashAdvance : undefined,
+            officialAdvance: entry.officialAdvance !== undefined ? nextOfficialAdvance : undefined,
+            overtime50: entry.overtime50 ?? undefined,
+            overtime100: entry.overtime100 ?? undefined,
+            // official/cash are automatic; set when any split-driving field changes
+            officialPayment: shouldRecalculateSplit ? (split?.officialPayment ?? undefined) : undefined,
+            cashPayment: shouldRecalculateSplit ? (split?.cashPayment ?? undefined) : undefined,
+            sortOrder: entry.sortOrder ?? undefined,
+          },
+          create: {
+            employeeId: entry.employeeId,
+            month: entry.month,
+            year: entry.year,
+            daysWorked: nextDaysWorked,
+            advance: nextCashAdvance,
+            officialAdvance: nextOfficialAdvance,
+            overtime50: entry.overtime50 ?? 0,
+            overtime100: entry.overtime100 ?? 0,
+            officialPayment: split?.officialPayment ?? 0,
+            cashPayment: split?.cashPayment ?? 0,
+            sortOrder: entry.sortOrder ?? 0,
+          },
+          include: {
+            employee: true,
+          },
+        });
 
-    const nextDaysWorked = entry.daysWorked ?? existing?.daysWorked ?? 0;
-    const nextOvertime50 = entry.overtime50 ?? existing?.overtime50 ?? 0;
-    const nextOvertime100 = entry.overtime100 ?? existing?.overtime100 ?? 0;
-    const earned = Math.max(0, (employee.salary / employee.workingDays) * nextDaysWorked);
-    const officialDaily = FIXED_OFFICIAL_PAYMENT / OFFICIAL_WORKING_DAYS_BASE;
-    const baseOfficial = employee.isInsured
-      ? Math.min(earned, Math.max(0, officialDaily * nextDaysWorked))
-      : 0;
-    const baseCash = Math.max(0, earned - baseOfficial) + Math.max(0, nextOvertime50) + Math.max(0, nextOvertime100);
+        results.push(transformToResponse(upsertedEntry));
+      }
 
-    const nextCashAdvance = Math.min(
-      Math.max(0, entry.advance ?? existing?.advance ?? 0),
-      baseCash
-    );
-    const nextOfficialAdvance = employee.isInsured
-      ? Math.min(
-          Math.max(0, entry.officialAdvance ?? (existing as { officialAdvance?: number } | null)?.officialAdvance ?? 0),
-          baseOfficial
-        )
-      : 0;
-
-    const split = shouldRecalculateSplit
-      ? calculateOfficialAndCash(
-          employee.isInsured,
-          employee.salary,
-          employee.workingDays,
-          nextDaysWorked,
-          nextOvertime50,
-          nextOvertime100,
-          nextCashAdvance,
-          nextOfficialAdvance
-        )
-      : null;
-
-    const upsertedEntry = await prisma.payrollEntry.upsert({
-      where: {
-        employeeId_month_year: {
-          employeeId: entry.employeeId,
-          month: entry.month,
-          year: entry.year,
-        },
-      },
-      update: {
-        daysWorked: entry.daysWorked ?? undefined,
-        advance: entry.advance !== undefined ? nextCashAdvance : undefined,
-        officialAdvance: entry.officialAdvance !== undefined ? nextOfficialAdvance : undefined,
-        overtime50: entry.overtime50 ?? undefined,
-        overtime100: entry.overtime100 ?? undefined,
-        // official/cash are automatic; set when any split-driving field changes
-        officialPayment: shouldRecalculateSplit ? (split?.officialPayment ?? undefined) : undefined,
-        cashPayment: shouldRecalculateSplit ? (split?.cashPayment ?? undefined) : undefined,
-        sortOrder: entry.sortOrder ?? undefined,
-      },
-      create: {
-        employeeId: entry.employeeId,
-        month: entry.month,
-        year: entry.year,
-        daysWorked: nextDaysWorked,
-        advance: nextCashAdvance,
-        officialAdvance: nextOfficialAdvance,
-        overtime50: entry.overtime50 ?? 0,
-        overtime100: entry.overtime100 ?? 0,
-        officialPayment: split?.officialPayment ?? 0,
-        cashPayment: split?.cashPayment ?? 0,
-        sortOrder: entry.sortOrder ?? 0,
-      },
-      include: {
-        employee: true,
-      },
-    });
-
-    results.push(transformToResponse(upsertedEntry));
-  }
-
-  return results;
+      return results;
+    },
+    // Çok satırlı sürükle-bırak sıralamada varsayılan 5sn yetmeyebilir
+    { timeout: 20000 }
+  );
 }
 
 /**

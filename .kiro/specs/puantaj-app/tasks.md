@@ -72,9 +72,12 @@ Bu plan, Excel benzeri puantaj uygulamasının adım adım implementasyonunu tan
     - calculateTotalReceivable fonksiyonu
     - calculatePayroll ana fonksiyonu
     - _Requirements: 5.1, 5.2, 5.3, 5.5_
-  - [ ]* 5.2 Property test: Calculation correctness
+  - [x]* 5.2 Property test: Calculation correctness
     - **Property 6: Calculation Correctness**
     - **Validates: Requirements 5.1, 5.2, 5.3**
+    - `src/services/calculation.service.test.ts`
+    - Ek olarak `src/services/payroll.calculation.test.ts`: resmi/elden dağılımı
+      (characterization test - mevcut sonuçları sabitler)
 
 - [x] 6. Puantaj modülü
   - [x] 6.1 Payroll service implementasyonu

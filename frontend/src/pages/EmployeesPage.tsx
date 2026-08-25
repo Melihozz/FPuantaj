@@ -9,10 +9,17 @@ import {
   createEmployee,
   updateEmployee,
   deleteEmployee,
-  WORK_AREA_LABELS,
   isApiError,
 } from '../api/employee';
+import { Category } from '../api/category';
+import { useCategories } from '../context/CategoryContext';
 import { useToast } from '../context/ToastContext';
+
+/**
+ * Çalışan adını büyük harfe çevirir.
+ * Türkçe kurallarına göre: i -> İ, ı -> I (düz toUpperCase "i"yi "I" yapardı).
+ */
+const toUpperTr = (text: string) => text.toLocaleUpperCase('tr-TR');
 
 // Modal component for add/edit employee
 interface EmployeeModalProps {
@@ -55,15 +62,56 @@ const createBulkRow = (): BulkEmployeeRow => ({
   workingDays: 30,
 });
 
-const defaultBulkGroup = (): BulkGroupFormData => ({
-  workArea: 'DEPO',
+const defaultBulkGroup = (defaultWorkArea: string): BulkGroupFormData => ({
+  workArea: defaultWorkArea,
   rows: [createBulkRow()],
 });
 
+/** Kategori seçim listesi - tanımlı kategori yoksa uyarı gösterir */
+function CategorySelect({
+  id,
+  value,
+  onChange,
+  disabled,
+  categories,
+  className,
+}: {
+  id: string;
+  value: string;
+  onChange: (code: string) => void;
+  disabled?: boolean;
+  categories: Category[];
+  className?: string;
+}) {
+  return (
+    <select
+      id={id}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+      disabled={disabled || categories.length === 0}
+    >
+      {categories.length === 0 && <option value="">Kategori tanımlı değil</option>}
+      {/* Silinmiş bir kategoriye ait çalışan düzenlenirse kod kaybolmasın */}
+      {value && !categories.some((c) => c.code === value) && (
+        <option value={value}>{value} (tanımsız)</option>
+      )}
+      {categories.map((category) => (
+        <option key={category.id} value={category.code}>
+          {category.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: EmployeeModalProps) {
+  const { categories } = useCategories();
+  const defaultWorkArea = categories[0]?.code ?? '';
+
   const [formData, setFormData] = useState<CreateEmployeeInput>({
     fullName: '',
-    workArea: 'DEPO',
+    workArea: defaultWorkArea,
     isInsured: false,
     startDate: new Date().toISOString().split('T')[0],
     endDate: null,
@@ -86,7 +134,7 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
     } else {
       setFormData({
         fullName: '',
-        workArea: 'DEPO',
+        workArea: defaultWorkArea,
         isInsured: false,
         startDate: new Date().toISOString().split('T')[0],
         endDate: null,
@@ -95,6 +143,9 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
       });
     }
     setErrors({});
+    // defaultWorkArea kategoriler yüklendikçe değişir; bilerek bağımlılığa
+    // eklenmedi, aksi halde form açıkken seçim sıfırlanırdı
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employee, isOpen]);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -119,7 +170,8 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
     }
 
     try {
-      await onSave(formData);
+      // Kaydederken de büyük harfe zorla (yapıştırma/otomatik doldurma güvencesi)
+      await onSave({ ...formData, fullName: toUpperTr(formData.fullName.trim()) });
       onClose();
     } catch (error) {
       if (isApiError(error) && error.details) {
@@ -152,7 +204,7 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
               id="employee_fullName"
               type="text"
               value={formData.fullName}
-              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              onChange={(e) => setFormData({ ...formData, fullName: toUpperTr(e.target.value) })}
               className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
                 errors.fullName ? 'border-red-500' : 'border-gray-300'
               }`}
@@ -167,19 +219,19 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
             <label htmlFor="employee_workArea" className="block text-sm font-medium text-gray-700 mb-1">
               Çalışma Alanı *
             </label>
-            <select
+            <CategorySelect
               id="employee_workArea"
               value={formData.workArea}
-              onChange={(e) => setFormData({ ...formData, workArea: e.target.value as WorkArea })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(code) => setFormData({ ...formData, workArea: code })}
+              categories={categories}
               disabled={isLoading}
-            >
-              {Object.entries(WORK_AREA_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            {categories.length === 0 && (
+              <p className="mt-1 text-sm text-amber-700">
+                Önce Tanımlamalar &gt; Kategoriler sayfasından kategori eklemelisin.
+              </p>
+            )}
           </div>
 
           <div className="flex items-center">
@@ -292,13 +344,17 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
 }
 
 function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeModalProps) {
-  const [groups, setGroups] = useState<BulkGroupFormData[]>([defaultBulkGroup()]);
+  const { categories } = useCategories();
+  const defaultWorkArea = categories[0]?.code ?? '';
+
+  const [groups, setGroups] = useState<BulkGroupFormData[]>([defaultBulkGroup(defaultWorkArea)]);
   const [errors, setErrors] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isOpen) return;
-    setGroups([defaultBulkGroup()]);
+    setGroups([defaultBulkGroup(defaultWorkArea)]);
     setErrors([]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -309,7 +365,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
     );
   };
 
-  const addGroup = () => setGroups((prev) => [...prev, defaultBulkGroup()]);
+  const addGroup = () => setGroups((prev) => [...prev, defaultBulkGroup(defaultWorkArea)]);
   const removeGroup = (index: number) =>
     setGroups((prev) => (prev.length <= 1 ? prev : prev.filter((_, i) => i !== index)));
 
@@ -375,7 +431,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
         }
 
         payload.push({
-          fullName: row.fullName.trim(),
+          fullName: toUpperTr(row.fullName.trim()),
           workArea: group.workArea,
           isInsured: row.isInsured,
           startDate: row.startDate,
@@ -442,19 +498,14 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
                     <label htmlFor={`bulk_workarea_${index}`} className="block text-sm font-medium text-gray-700 mb-1">Çalışma Alanı</label>
-                    <select
+                    <CategorySelect
                       id={`bulk_workarea_${index}`}
                       value={group.workArea}
-                      onChange={(e) => updateGroupWorkArea(index, e.target.value as WorkArea)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      onChange={(code) => updateGroupWorkArea(index, code)}
+                      categories={categories}
                       disabled={isLoading}
-                    >
-                      {Object.entries(WORK_AREA_LABELS).map(([value, label]) => (
-                        <option key={value} value={value}>
-                          {label}
-                        </option>
-                      ))}
-                    </select>
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                    />
                   </div>
                 </div>
 
@@ -480,7 +531,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               id={`bulk_fullname_${index}_${row.id}`}
                               type="text"
                               value={row.fullName}
-                              onChange={(e) => updateRow(index, row.id, 'fullName', e.target.value)}
+                              onChange={(e) => updateRow(index, row.id, 'fullName', toUpperTr(e.target.value))}
                               className="w-full px-2 py-1 border border-gray-300 rounded"
                               placeholder={`Çalışan ${rowIndex + 1}`}
                               disabled={isLoading}
@@ -672,12 +723,14 @@ interface EmployeeCardProps {
 }
 
 function EmployeeCard({ employee, onEdit, onDelete, formatDate, formatCurrency }: EmployeeCardProps) {
+  const { labelOf } = useCategories();
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
       <div className="flex justify-between items-start mb-3">
         <div>
           <h3 className="text-base font-semibold text-gray-900">{employee.fullName}</h3>
-          <p className="text-sm text-gray-500">{WORK_AREA_LABELS[employee.workArea]}</p>
+          <p className="text-sm text-gray-500">{labelOf(employee.workArea)}</p>
         </div>
         <span
           className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
@@ -735,7 +788,8 @@ export default function EmployeesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { showToast } = useToast();
-  
+  const { labelOf, orderedCodes, refresh: refreshCategories } = useCategories();
+
   // Modal states
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState<Employee | null>(null);
@@ -748,6 +802,9 @@ export default function EmployeesPage() {
   const [deletingEmployee, setDeletingEmployee] = useState<Employee | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // "Aktif Olmayan Çalışanlar" paneli (varsayılan kapalı)
+  const [isInactiveOpen, setIsInactiveOpen] = useState(false);
+
   // Fetch employees on mount
   useEffect(() => {
     fetchEmployees();
@@ -759,6 +816,8 @@ export default function EmployeesPage() {
     try {
       const data = await getAllEmployees();
       setEmployees(data);
+      // Kategorilerdeki çalışan sayıları değişmiş olabilir
+      refreshCategories();
     } catch (err) {
       const message = isApiError(err) ? err.message : 'Çalışanlar yüklenirken bir hata oluştu';
       setError(message);
@@ -856,18 +915,22 @@ export default function EmployeesPage() {
     }).format(amount);
   };
 
-  const grouped: Record<WorkArea, Employee[]> = {
-    DEPO: [],
-    URETIM: [],
-    OFIS: [],
-    SAHA_ELEMANI: [],
-    KAYSERI_YATAS: [],
-    ANKARA_YATAS: [],
-    ISTANBUL_YATAS: [],
-    DIGER: [],
-  };
-  employees.forEach((e) => grouped[e.workArea].push(e));
-  const workAreas: WorkArea[] = ['DEPO', 'URETIM', 'OFIS', 'SAHA_ELEMANI', 'KAYSERI_YATAS', 'ANKARA_YATAS', 'ISTANBUL_YATAS', 'DIGER'];
+  // İşten çıkış tarihi verilen çalışan artık aktif değildir:
+  // ana gruplarda değil, "Aktif Olmayan Çalışanlar" panelinde listelenir
+  const activeEmployees = employees.filter((e) => !e.endDate);
+  const inactiveEmployees = [...employees]
+    .filter((e) => !!e.endDate)
+    .sort((a, b) => a.fullName.localeCompare(b.fullName, 'tr-TR'));
+
+  // Gruplar tanımlı kategorilerden gelir; kategorisi silinmiş çalışanlar
+  // (workArea kodu artık listede yoksa) kaybolmasın diye sona eklenir
+  const grouped: Record<string, Employee[]> = {};
+  activeEmployees.forEach((e) => {
+    if (!grouped[e.workArea]) grouped[e.workArea] = [];
+    grouped[e.workArea].push(e);
+  });
+  const orphanAreas = Object.keys(grouped).filter((code) => !orderedCodes.includes(code));
+  const workAreas: WorkArea[] = [...orderedCodes, ...orphanAreas];
 
   if (isLoading) {
     return (
@@ -887,8 +950,13 @@ export default function EmployeesPage() {
           <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
             Çalışanlar
             <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-              {employees.length} çalışan
+              {activeEmployees.length} aktif
             </span>
+            {inactiveEmployees.length > 0 && (
+              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-amber-200">
+                {inactiveEmployees.length} pasif
+              </span>
+            )}
           </h1>
           <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
             <button
@@ -930,8 +998,14 @@ export default function EmployeesPage() {
           Henüz çalışan bulunmuyor. Yeni çalışan eklemek için yukarıdaki butonu kullanın.
         </div>
       ) : (
-        workAreas.map((area) => {
-          const areaEmployees = grouped[area];
+        <>
+        {activeEmployees.length === 0 && (
+          <div className="bg-white shadow rounded-lg p-8 text-center text-gray-500">
+            Aktif çalışan bulunmuyor. Tüm çalışanlar işten çıkış almış durumda.
+          </div>
+        )}
+        {workAreas.map((area) => {
+          const areaEmployees = grouped[area] ?? [];
           if (areaEmployees.length === 0) return null;
 
           // Keep stable / readable ordering within a group
@@ -942,7 +1016,7 @@ export default function EmployeesPage() {
               <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 via-white to-slate-50 border-b border-slate-200 flex items-center gap-3">
                 <div className="h-6 w-1.5 rounded-full bg-indigo-600" />
                 <h2 className="text-lg font-semibold tracking-tight text-slate-900">
-                  {WORK_AREA_LABELS[area]}
+                  {labelOf(area)}
                   <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
                     {sorted.length} kişi
                   </span>
@@ -1001,7 +1075,7 @@ export default function EmployeesPage() {
                           {employee.fullName}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {WORK_AREA_LABELS[employee.workArea]}
+                          {labelOf(employee.workArea)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span
@@ -1047,7 +1121,126 @@ export default function EmployeesPage() {
               </div>
             </div>
           );
-        })
+        })}
+
+        {/* Aktif olmayan (işten çıkış almış) çalışanlar - açılır/kapanır panel */}
+        {inactiveEmployees.length > 0 && (
+          <div className="bg-white shadow rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setIsInactiveOpen((open) => !open)}
+              aria-expanded={isInactiveOpen}
+              className={`w-full px-6 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 flex items-center justify-between gap-3 text-left hover:bg-slate-50 ${
+                isInactiveOpen ? 'border-b border-slate-200' : ''
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <div className="h-6 w-1.5 rounded-full bg-slate-400" />
+                <h2 className="text-lg font-semibold tracking-tight text-slate-600">
+                  Aktif Olmayan Çalışanlar
+                  <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-amber-200">
+                    {inactiveEmployees.length} kişi
+                  </span>
+                </h2>
+              </div>
+              <span
+                aria-hidden="true"
+                className={`text-slate-500 text-sm transition-transform ${isInactiveOpen ? 'rotate-180' : ''}`}
+              >
+                ▼
+              </span>
+            </button>
+
+            {isInactiveOpen && (
+              <>
+                {/* Mobile card view */}
+                <div className="block md:hidden p-4 space-y-4 opacity-80">
+                  {inactiveEmployees.map((employee) => (
+                    <EmployeeCard
+                      key={employee.id}
+                      employee={employee}
+                      onEdit={handleEditClick}
+                      onDelete={handleDeleteClick}
+                      formatDate={formatDate}
+                      formatCurrency={formatCurrency}
+                    />
+                  ))}
+                </div>
+
+                {/* Desktop table view */}
+                <div className="hidden md:block overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışma Alanı</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sigorta</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşe Giriş</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşten Çıkış</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Maaş</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışma Günü</th>
+                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {inactiveEmployees.map((employee) => (
+                        <tr key={employee.id} className="hover:bg-gray-50 bg-slate-50/60">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
+                            {employee.fullName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {labelOf(employee.workArea)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            <span
+                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                                employee.isInsured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                              }`}
+                            >
+                              {employee.isInsured ? 'Sigortalı' : 'Sigortasız'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatDate(employee.startDate)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                            {employee.endDate ? formatDate(employee.endDate) : '-'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {formatCurrency(employee.salary)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {employee.workingDays}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <button
+                              onClick={() => handleEditClick(employee)}
+                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            >
+                              Düzenle
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClick(employee)}
+                              className="text-red-600 hover:text-red-900"
+                            >
+                              Sil
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-gray-500">
+                  Bu çalışanlar işten çıkış tarihinden sonraki dönemlerin puantaj tablosunda görünmez.
+                  Tekrar aktifleştirmek için "Düzenle" ile işten çıkış tarihini silebilirsin.
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        </>
       )}
 
       <EmployeeModal
