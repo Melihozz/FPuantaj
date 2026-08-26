@@ -4,6 +4,18 @@ import { createOvertime, createOvertimeBulk, deleteOvertime, getOvertimeEntries,
 import { WorkArea } from '../api/employee';
 import { useCategories } from '../context/CategoryContext';
 import { useToast } from '../context/ToastContext';
+import { PanelLoader } from '../components/Loaders';
+import {
+  IconAlertTriangle,
+  IconCalendar,
+  IconClose,
+  IconClock,
+  IconDownload,
+  IconInbox,
+  IconPlus,
+  IconTrash,
+  IconTrendUp,
+} from '../components/Icons';
 
 type OvertimeType = 'OVERTIME_50' | 'OVERTIME_100';
 
@@ -128,17 +140,17 @@ function EmployeeSearchSelect({
             inputRef.current?.blur();
           }
         }}
-        className="w-full px-2 py-1 border border-gray-300 rounded bg-white"
+        className="field-cell"
         disabled={disabled}
         autoComplete="off"
       />
       {isOpen && rect && (
         <div
-          className="fixed z-[60] bg-white border border-gray-200 rounded-md shadow-lg max-h-48 overflow-y-auto"
+          className="fixed z-[70] max-h-52 overflow-y-auto rounded-xl border border-ink-200/70 bg-white p-1.5 shadow-lifted"
           style={{ top: rect.top, left: rect.left, width: rect.width }}
         >
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-gray-500">Sonuç bulunamadı</div>
+            <div className="px-3 py-2 text-sm text-ink-500">Sonuç bulunamadı</div>
           ) : (
             filtered.map((option) => (
               <button
@@ -146,12 +158,12 @@ function EmployeeSearchSelect({
                 type="button"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => pick(option.id)}
-                className={`flex w-full items-center justify-between gap-2 text-left px-3 py-1.5 text-sm hover:bg-indigo-50 ${
-                  option.id === value ? 'bg-indigo-50 font-medium text-indigo-900' : 'text-gray-800'
+                className={`flex w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors hover:bg-brand-50 ${
+                  option.id === value ? 'bg-brand-50 font-semibold text-brand-800' : 'text-ink-700'
                 }`}
               >
                 <span>{option.name}</span>
-                <span className="text-xs text-gray-500 whitespace-nowrap">{option.area}</span>
+                <span className="text-xs text-ink-500 whitespace-nowrap">{option.area}</span>
               </button>
             ))
           )}
@@ -280,48 +292,54 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[min(1500px,95vw)] max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-[min(1500px,95vw)] max-h-[90vh] flex flex-col">
+        <div className="modal-header">
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Toplu Mesai Ekle</h2>
-            <p className="text-xs text-gray-500 mt-0.5">
+            <h2 className="modal-title">Toplu Mesai Ekle</h2>
+            <p className="text-xs text-ink-500 mt-0.5">
               {MONTH_NAMES[month]} {year} dönemine eklenecek
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-xl leading-none"
+            className="btn-icon"
             disabled={isSaving}
             aria-label="Kapat"
           >
-            ×
+            <IconClose />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+          <div className="flex-1 space-y-4 overflow-y-auto bg-ink-50/40 p-5 sm:p-6">
             {errors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+              <div className="alert alert-danger flex-col items-stretch gap-1.5">
+                <span className="flex items-center gap-2 font-semibold">
+                  <IconAlertTriangle className="h-[18px] w-[18px] shrink-0" />
+                  Lütfen aşağıdaki alanları düzeltin
+                </span>
                 {errors.map((error, index) => (
-                  <div key={`${error}-${index}`}>{error}</div>
+                  <div key={`${error}-${index}`} className="pl-6 text-[13px]">
+                    {error}
+                  </div>
                 ))}
               </div>
             )}
 
             <div className="overflow-x-auto">
-              <table className="min-w-full text-sm border border-gray-200 rounded-md overflow-hidden">
-                <thead className="bg-slate-100 text-slate-700">
+              <table className="min-w-full overflow-hidden rounded-xl border border-ink-200 bg-white text-sm">
+                <thead className="bg-ink-50">
                   <tr>
-                    <th className="px-2 py-2 text-left font-semibold">Kategori</th>
-                    <th className="px-2 py-2 text-left font-semibold">Çalışan</th>
-                    <th className="px-2 py-2 text-left font-semibold">Tarih</th>
-                    <th className="px-2 py-2 text-left font-semibold">Mesai Türü</th>
-                    <th className="px-2 py-2 text-left font-semibold">Saat</th>
-                    <th className="px-2 py-2 text-left font-semibold">Açıklama</th>
-                    <th className="px-2 py-2 text-right font-semibold">Tutar</th>
-                    <th className="px-2 py-2 text-right font-semibold">İşlem</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Kategori</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Çalışan</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Tarih</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Mesai Türü</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Saat</th>
+                    <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Açıklama</th>
+                    <th className="px-2 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Tutar</th>
+                    <th className="px-2 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">İşlem</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -330,14 +348,12 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
                       key={row.id}
                       // Tür bir bakışta ayrışsın: %50 turuncu, %100 mavi
                       // (sayfadaki özet bölümünün renk kodlamasıyla aynı)
-                      className={`border-t border-gray-200 ${
-                        row.type === 'OVERTIME_50' ? 'bg-orange-50' : 'bg-blue-50'
+                      className={`border-t border-ink-200/70 ${
+                        row.type === 'OVERTIME_50' ? 'bg-accent-50/60' : 'bg-brand-50/60'
                       }`}
                     >
                       <td className="px-2 py-2 whitespace-nowrap min-w-[110px]">
-                        <span className="px-2 py-0.5 text-[11px] rounded-full bg-slate-200 text-slate-700 font-medium">
-                          {areaLabelOf(row.employeeId)}
-                        </span>
+                        <span className="badge badge-neutral">{areaLabelOf(row.employeeId)}</span>
                       </td>
                       <td className="px-2 py-2 min-w-[200px]">
                         <label htmlFor={`bulk_ot_employee_${row.id}`} className="sr-only">Çalışan</label>
@@ -356,7 +372,7 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
                           type="date"
                           value={row.entryDate}
                           onChange={(e) => updateRow(row.id, 'entryDate', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded bg-white"
+                          className="field-cell"
                           disabled={isSaving}
                         />
                       </td>
@@ -366,10 +382,10 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
                           id={`bulk_ot_type_${row.id}`}
                           value={row.type}
                           onChange={(e) => updateRow(row.id, 'type', e.target.value as OvertimeType)}
-                          className={`w-full px-2 py-1 border rounded bg-white font-medium ${
+                          className={`field-cell font-semibold ${
                             row.type === 'OVERTIME_50'
-                              ? 'border-orange-300 text-orange-700'
-                              : 'border-blue-300 text-blue-700'
+                              ? 'border-accent-300 text-accent-700'
+                              : 'border-brand-300 text-brand-700'
                           }`}
                           disabled={isSaving}
                         >
@@ -386,7 +402,7 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
                           step="0.25"
                           value={row.hours}
                           onChange={(e) => updateRow(row.id, 'hours', parseFloat(e.target.value) || 0)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded text-right bg-white"
+                          className="w-full px-2 py-1 border border-ink-200 rounded text-right bg-white"
                           placeholder="0"
                           disabled={isSaving}
                         />
@@ -399,30 +415,32 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
                           maxLength={100}
                           value={row.description}
                           onChange={(e) => updateRow(row.id, 'description', e.target.value)}
-                          className="w-full px-2 py-1 border border-gray-300 rounded bg-white"
+                          className="field-cell"
                           placeholder={`Mesai açıklaması (satır ${rowIndex + 1})`}
                           disabled={isSaving}
                         />
                       </td>
-                      <td className="px-2 py-2 text-right whitespace-nowrap font-medium text-slate-900 min-w-[110px]">
+                      <td className="px-2 py-2 text-right whitespace-nowrap font-medium text-ink-900 min-w-[110px]">
                         {formatCurrency(overtimeAmount(dailyWageOf(row.employeeId), row.type, row.hours))}
                       </td>
                       <td className="px-2 py-2 text-right whitespace-nowrap min-w-[150px]">
                         <button
                           type="button"
                           onClick={() => duplicateWithOtherType(row.id)}
-                          className="text-sm text-indigo-600 hover:text-indigo-800 mr-3 disabled:text-gray-400"
+                          className="link-action mr-1 text-sm"
                           disabled={isSaving}
                           title="Bu satırı diğer mesai türüyle kopyala (aynı çalışana %50 + %100)"
                         >
-                          + Diğer Tür
+                          <IconPlus className="h-4 w-4" />
+                          Diğer Tür
                         </button>
                         <button
                           type="button"
                           onClick={() => removeRow(row.id)}
-                          className="text-sm text-red-600 hover:text-red-800 disabled:text-gray-400"
+                          className="link-danger text-sm"
                           disabled={isSaving || rows.length === 1}
                         >
+                          <IconTrash className="h-4 w-4" />
                           Sil
                         </button>
                       </td>
@@ -433,32 +451,36 @@ function BulkOvertimeModal({ payrollEntries, month, year, isSaving, onSave, onCl
               <button
                 type="button"
                 onClick={addRow}
-                className="mt-3 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100"
+                className="btn btn-sm mt-3 border border-dashed border-brand-300 bg-brand-50/60 text-brand-700 hover:bg-brand-100"
                 disabled={isSaving}
               >
-                + Satır Ekle
+                <IconPlus className="h-4 w-4" />
+                Satır Ekle
               </button>
             </div>
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-white">
-            <p className="text-sm text-gray-600">
-              Hazır satır: <span className="font-semibold">{validRows.length}</span>
-              {' · '}
-              Toplam tutar: <span className="font-semibold">{formatCurrency(totalAmount)}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 bg-white px-5 py-4 sm:px-6">
+            <p className="flex flex-wrap items-center gap-2 text-sm text-ink-500">
+              Hazır satır: <span className="badge badge-brand">{validRows.length}</span>
+              <span aria-hidden="true" className="h-1 w-1 rounded-full bg-ink-300" />
+              Toplam tutar:{' '}
+              <span className="font-display font-bold tabular-nums text-ink-900">
+                {formatCurrency(totalAmount)}
+              </span>
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="btn btn-secondary"
                 disabled={isSaving}
               >
                 İptal
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                className="btn btn-primary"
                 disabled={isSaving}
               >
                 {isSaving ? 'Kaydediliyor...' : 'Mesaileri Kaydet'}
@@ -856,82 +878,102 @@ export default function OvertimePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="bg-white shadow rounded-lg p-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto" />
-      </div>
-    );
+    return <PanelLoader label="Mesai kayıtları yükleniyor..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-gray-900">Mesailer</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">Dönem:</span>
-          <select
-            aria-label="Ay seçimi"
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
-            className="px-3 py-2 border rounded-md text-sm"
-          >
-            {Object.entries(MONTH_NAMES).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
-          <select
-            aria-label="Yıl seçimi"
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(parseInt(e.target.value))}
-            className="px-3 py-2 border rounded-md text-sm"
-          >
-            {yearOptions.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconClock className="h-[22px] w-[22px]" />
+          </span>
+          <div>
+            <h1 className="page-title">
+              Mesailer
+              <span className="badge badge-neutral">{overtimeEntries.length} kayıt</span>
+            </h1>
+            <p className="page-desc">
+              {MONTH_NAMES[selectedMonth]} {selectedYear} dönemi · %50 ve %100 mesai girişleri
+              hakedişe otomatik yansır.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white p-1 shadow-card">
+            <span className="pl-2.5 text-ink-400">
+              <IconCalendar className="h-[18px] w-[18px]" />
+            </span>
+            <select
+              aria-label="Ay seçimi"
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(parseInt(e.target.value))}
+              className="w-auto cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-1.5 pl-1 pr-6 text-sm font-semibold text-ink-800 focus:ring-0"
+            >
+              {Object.entries(MONTH_NAMES).map(([v, l]) => (
+                <option key={v} value={v}>
+                  {l}
+                </option>
+              ))}
+            </select>
+            <span aria-hidden="true" className="h-5 w-px bg-ink-200" />
+            <select
+              aria-label="Yıl seçimi"
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(parseInt(e.target.value))}
+              className="w-auto cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-1.5 pl-1 pr-6 text-sm font-semibold text-ink-800 focus:ring-0"
+            >
+              {yearOptions.map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <button
             type="button"
             onClick={() => setIsBulkModalOpen(true)}
             disabled={payrollEntries.length === 0}
-            className="px-3 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="btn btn-secondary"
           >
-            + Toplu Mesai
+            <IconPlus className="h-[18px] w-[18px]" />
+            Toplu Mesai
           </button>
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700"
-          >
+          <button type="button" onClick={handleExportExcel} className="btn btn-success">
+            <IconDownload className="h-[18px] w-[18px]" />
             Excel'e İndir
           </button>
         </div>
-      </div>
+      </header>
 
-      <div className="bg-white shadow rounded-lg px-6 py-4">
-        <h2 className="text-base font-semibold text-slate-900 mb-4">Mesai Ekle</h2>
+      <div className="card px-5 sm:px-6 py-5">
+        <h2 className="card-title mb-5 flex items-center gap-2.5">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+            <IconPlus className="h-[18px] w-[18px]" />
+          </span>
+          Mesai Ekle
+        </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ot_date">Tarih</label>
+              <label className="form-label" htmlFor="ot_date">Tarih</label>
               <input
                 id="ot_date"
                 type="date"
                 value={entryDate}
                 onChange={(e) => setEntryDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="field field-sm"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ot_employee">Çalışan</label>
+              <label className="form-label" htmlFor="ot_employee">Çalışan</label>
               <select
                 id="ot_employee"
                 value={employeeId}
                 onChange={(e) => setEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="field field-sm"
               >
                 {payrollEntries.map((entry) => (
                   <option key={entry.employeeId} value={entry.employeeId}>
@@ -941,19 +983,19 @@ export default function OvertimePage() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ot_type">Mesai Türü</label>
+              <label className="form-label" htmlFor="ot_type">Mesai Türü</label>
               <select
                 id="ot_type"
                 value={type}
                 onChange={(e) => setType(e.target.value as 'OVERTIME_50' | 'OVERTIME_100')}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="field field-sm"
               >
                 <option value="OVERTIME_50">%50</option>
                 <option value="OVERTIME_100">%100</option>
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ot_hours">Saat</label>
+              <label className="form-label" htmlFor="ot_hours">Saat</label>
               <input
                 id="ot_hours"
                 type="number"
@@ -961,14 +1003,14 @@ export default function OvertimePage() {
                 step="0.25"
                 value={hours}
                 onChange={(e) => setHours(parseFloat(e.target.value) || 0)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                className="field field-sm"
               />
             </div>
             <div className="flex items-end">
               <button
                 type="submit"
                 disabled={isSaving || !selectedEntry}
-                className="w-full px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                className="btn btn-primary w-full"
               >
                 {isSaving ? 'Kaydediliyor...' : 'Mesaiyi Kaydet'}
               </button>
@@ -976,7 +1018,7 @@ export default function OvertimePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1" htmlFor="ot_desc">
+            <label className="form-label" htmlFor="ot_desc">
               Açıklama (maks. 100 karakter)
             </label>
             <input
@@ -985,49 +1027,54 @@ export default function OvertimePage() {
               value={description}
               maxLength={100}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="field field-sm"
               placeholder="Mesai açıklaması"
             />
-            <div className="text-xs text-gray-500 mt-1">{description.length}/100</div>
+            <div className="text-xs text-ink-500 mt-1">{description.length}/100</div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-sm">
-            <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200">
-              <div className="text-slate-600">Maaş</div>
-              <div className="font-semibold text-slate-900">{formatCurrency(selectedEntry?.employee.salary || 0)}</div>
+            <div className="stat-tile">
+              <div className="text-ink-600">Maaş</div>
+              <div className="font-semibold text-ink-900">{formatCurrency(selectedEntry?.employee.salary || 0)}</div>
             </div>
-            <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200">
-              <div className="text-slate-600">Toplam Günlük</div>
-              <div className="font-semibold text-slate-900">{formatCurrency(selectedEntry?.dailyWage || 0)}</div>
+            <div className="stat-tile">
+              <div className="text-ink-600">Toplam Günlük</div>
+              <div className="font-semibold text-ink-900">{formatCurrency(selectedEntry?.dailyWage || 0)}</div>
             </div>
-            <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200">
-              <div className="text-slate-600">Saatlik Ücret</div>
-              <div className="font-semibold text-slate-900">{formatCurrency(hourlyWage)}</div>
+            <div className="stat-tile">
+              <div className="text-ink-600">Saatlik Ücret</div>
+              <div className="font-semibold text-ink-900">{formatCurrency(hourlyWage)}</div>
             </div>
-            <div className="px-3 py-2 rounded-md bg-slate-50 border border-slate-200">
-              <div className="text-slate-600">Çarpan</div>
-              <div className="font-semibold text-slate-900">{multiplier}</div>
+            <div className="stat-tile">
+              <div className="text-ink-600">Çarpan</div>
+              <div className="font-semibold text-ink-900">{multiplier}</div>
             </div>
-            <div className="px-3 py-2 rounded-md bg-indigo-50 border border-indigo-200">
-              <div className="text-indigo-700">Mesai Tutarı</div>
-              <div className="font-bold text-indigo-900">{formatCurrency(amount)}</div>
+            <div className="stat-tile border-brand-200 bg-brand-50">
+              <div className="text-brand-700">Mesai Tutarı</div>
+              <div className="font-bold text-brand-900">{formatCurrency(amount)}</div>
             </div>
           </div>
         </form>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <h2 className="text-base font-semibold text-gray-900">Girilen Mesailer</h2>
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <h2 className="card-title flex items-center gap-2.5">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+              <IconClock className="h-[18px] w-[18px]" />
+            </span>
+            Girilen Mesailer
+          </h2>
           <div className="w-full md:w-72">
-            <label htmlFor="overtime_table_employee_filter" className="block text-xs font-medium text-gray-600 mb-1">
+            <label htmlFor="overtime_table_employee_filter" className="form-label">
               Çalışan Filtresi
             </label>
             <select
               id="overtime_table_employee_filter"
               value={listEmployeeFilterId}
               onChange={(e) => setListEmployeeFilterId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="field field-sm"
             >
               <option value="">(Tümü)</option>
               {payrollEntries.map((entry) => (
@@ -1039,68 +1086,84 @@ export default function OvertimePage() {
           </div>
         </div>
         {overtimeEntries.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">Bu dönem için mesai kaydı yok.</div>
+          <div className="empty-state">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+              <IconInbox className="h-7 w-7" />
+            </span>
+            <p className="font-display text-base font-semibold text-ink-800">
+              Bu dönem için mesai kaydı yok
+            </p>
+            <p className="max-w-sm text-sm text-ink-500">
+              Yukarıdaki formdan tek tek, ya da <strong>Toplu Mesai</strong> ile hızlıca giriş
+              yapabilirsiniz.
+            </p>
+          </div>
         ) : (
           <>
             {filteredOvertimeEntries.length === 0 ? (
-              <div className="p-10 text-center text-gray-500">Seçili filtreye uygun mesai kaydı yok.</div>
+              <div className="empty-state text-sm text-ink-500">
+                <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+                  <IconInbox className="h-6 w-6" />
+                </span>
+                Seçili filtreye uygun mesai kaydı yok.
+              </div>
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-ink-200/60">
+                    <thead className="thead">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tarih</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tür</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Saat</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Çarpan</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Tutar</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Açıklama</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlem</th>
+                        <th className="th">Çalışan</th>
+                        <th className="th">Tarih</th>
+                        <th className="th">Tür</th>
+                        <th className="th-right">Saat</th>
+                        <th className="th-right">Çarpan</th>
+                        <th className="th-right">Tutar</th>
+                        <th className="th">Açıklama</th>
+                        <th className="th-right">İşlem</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-ink-200/60">
                       {entriesByArea.map((group) => (
                       <Fragment key={group.area}>
-                        <tr className="bg-slate-100 border-t-2 border-slate-300">
+                        <tr className="border-y border-ink-200 bg-gradient-to-r from-brand-50/70 via-ink-50 to-ink-50">
                           <td colSpan={8} className="px-6 py-2">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <div className="h-4 w-1 rounded-full bg-indigo-600" />
-                              <span className="text-sm font-semibold text-slate-800">
+                              <div className="h-4 w-1 rounded-full bg-gradient-to-b from-brand-400 to-brand-700" />
+                              <span className="text-sm font-semibold text-ink-800">
                                 {labelOf(group.area)}
                               </span>
-                              <span className="inline-flex items-center rounded-full bg-white px-2 py-0.5 text-xs font-medium text-slate-600 ring-1 ring-slate-300">
+                              <span className="badge bg-white text-ink-600 ring-ink-300">
                                 {group.entries.length} kayıt
                               </span>
                               <span className="ml-auto text-xs font-semibold">
-                                <span className="text-orange-600">%50: {formatCurrency(group.amount50)}</span>
+                                <span className="text-accent-600">%50: {formatCurrency(group.amount50)}</span>
                                 {' · '}
-                                <span className="text-blue-600">%100: {formatCurrency(group.amount100)}</span>
+                                <span className="text-brand-600">%100: {formatCurrency(group.amount100)}</span>
                                 {' · '}
-                                <span className="text-green-700">Toplam: {formatCurrency(group.total)}</span>
+                                <span className="text-emerald-700">Toplam: {formatCurrency(group.total)}</span>
                               </span>
                             </div>
                           </td>
                         </tr>
                         {group.entries.map((entry) => (
                         <tr key={entry.id}>
-                          <td className="px-6 py-4 text-sm text-gray-900">{entry.employee.fullName}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{new Date(entry.entryDate).toLocaleDateString('tr-TR')}</td>
-                          <td className="px-6 py-4 text-sm text-gray-700">{entry.type === 'OVERTIME_50' ? '%50' : '%100'}</td>
-                          <td className="px-6 py-4 text-sm text-right text-gray-700">{entry.hours}</td>
-                          <td className="px-6 py-4 text-sm text-right text-gray-700">{entry.multiplier}</td>
-                          <td className="px-6 py-4 text-sm text-right font-medium text-gray-900">{formatCurrency(entry.amount)}</td>
-                          <td className="px-6 py-4 text-sm text-gray-600">{entry.description || '-'}</td>
+                          <td className="px-6 py-4 text-sm text-ink-900">{entry.employee.fullName}</td>
+                          <td className="px-6 py-4 text-sm text-ink-700">{new Date(entry.entryDate).toLocaleDateString('tr-TR')}</td>
+                          <td className="px-6 py-4 text-sm text-ink-700">{entry.type === 'OVERTIME_50' ? '%50' : '%100'}</td>
+                          <td className="px-6 py-4 text-sm text-right text-ink-700">{entry.hours}</td>
+                          <td className="px-6 py-4 text-sm text-right text-ink-700">{entry.multiplier}</td>
+                          <td className="px-6 py-4 text-sm text-right font-medium text-ink-900">{formatCurrency(entry.amount)}</td>
+                          <td className="px-6 py-4 text-sm text-ink-600">{entry.description || '-'}</td>
                           <td className="px-6 py-4 text-right text-sm whitespace-nowrap">
                             {confirmingDeleteId === entry.id ? (
                               <span className="inline-flex items-center gap-2">
-                                <span className="text-xs text-gray-600">Silinsin mi?</span>
+                                <span className="text-xs text-ink-600">Silinsin mi?</span>
                                 <button
                                   type="button"
                                   onClick={() => handleDelete(entry)}
                                   disabled={deletingId === entry.id}
-                                  className="font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                                  className="link-danger"
                                 >
                                   {deletingId === entry.id ? 'Siliniyor...' : 'Evet, Sil'}
                                 </button>
@@ -1108,7 +1171,7 @@ export default function OvertimePage() {
                                   type="button"
                                   onClick={() => setConfirmingDeleteId(null)}
                                   disabled={deletingId === entry.id}
-                                  className="text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                                  className="link-muted"
                                 >
                                   Vazgeç
                                 </button>
@@ -1118,8 +1181,9 @@ export default function OvertimePage() {
                                 type="button"
                                 onClick={() => setConfirmingDeleteId(entry.id)}
                                 disabled={deletingId !== null}
-                                className="text-red-600 hover:text-red-900 disabled:opacity-50"
+                                className="link-danger"
                               >
+                                <IconTrash className="h-4 w-4" />
                                 Sil
                               </button>
                             )}
@@ -1132,39 +1196,42 @@ export default function OvertimePage() {
                   </table>
                 </div>
 
-                <div className="border-t border-gray-200 bg-slate-50 px-6 py-4">
-                  <h3 className="text-sm font-semibold text-slate-800 mb-2">Çalışan Bazlı Toplamlar</h3>
+                <div className="border-t border-ink-200/70 bg-ink-50/70 px-5 py-5 sm:px-6">
+                  <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-500">
+                    <IconTrendUp className="h-4 w-4" />
+                    Çalışan Bazlı Toplamlar
+                  </h3>
                   <div>
                     {employeeSummaries.map((item, index) => (
                       <div
                         key={item.employeeName}
                         // Geniş ekranda isim ile tutar arası çok açılıyor:
                         // noktalı kılavuz çizgi + zebra + hover ile satır takibi kolaylaşır
-                        className={`flex items-baseline gap-2 text-sm px-2 py-1.5 rounded ${
+                        className={`flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
                           index % 2 === 1 ? 'bg-white' : ''
-                        } hover:bg-indigo-50`}
+                        } hover:bg-brand-50/70`}
                       >
-                        <span className="text-slate-700 font-medium whitespace-nowrap">{item.employeeName}</span>
-                        <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
-                        <span className="font-semibold text-slate-900 whitespace-nowrap">
-                          <span className="text-orange-600">%50: {formatCurrency(item.amount50)} ({item.hours50.toFixed(2)}s)</span>
+                        <span className="text-ink-700 font-medium whitespace-nowrap">{item.employeeName}</span>
+                        <span aria-hidden="true" className="divider-dots" />
+                        <span className="font-semibold text-ink-900 whitespace-nowrap">
+                          <span className="text-accent-600">%50: {formatCurrency(item.amount50)} ({item.hours50.toFixed(2)}s)</span>
                           {' · '}
-                          <span className="text-blue-600">%100: {formatCurrency(item.amount100)} ({item.hours100.toFixed(2)}s)</span>
+                          <span className="text-brand-600">%100: {formatCurrency(item.amount100)} ({item.hours100.toFixed(2)}s)</span>
                           {' · '}
-                          <span className="text-green-700">Toplam: {formatCurrency(item.totalAmount)} ({item.totalHours.toFixed(2)}s)</span>
+                          <span className="text-emerald-700">Toplam: {formatCurrency(item.totalAmount)} ({item.totalHours.toFixed(2)}s)</span>
                         </span>
                       </div>
                     ))}
                   </div>
-                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-baseline gap-2 px-2">
-                    <span className="text-slate-900 font-semibold whitespace-nowrap">Genel Toplam</span>
-                    <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
-                    <span className="font-bold text-slate-900 whitespace-nowrap">
-                      <span className="text-orange-600">%50: {formatCurrency(totals.amount50)} ({totals.hours50.toFixed(2)}s)</span>
+                  <div className="mt-3 flex items-baseline gap-2 rounded-xl border border-ink-200/70 bg-white px-3 py-2.5">
+                    <span className="font-display font-bold text-ink-900 whitespace-nowrap">Genel Toplam</span>
+                    <span aria-hidden="true" className="divider-dots" />
+                    <span className="font-bold text-ink-900 whitespace-nowrap">
+                      <span className="text-accent-600">%50: {formatCurrency(totals.amount50)} ({totals.hours50.toFixed(2)}s)</span>
                       {' · '}
-                      <span className="text-blue-600">%100: {formatCurrency(totals.amount100)} ({totals.hours100.toFixed(2)}s)</span>
+                      <span className="text-brand-600">%100: {formatCurrency(totals.amount100)} ({totals.hours100.toFixed(2)}s)</span>
                       {' · '}
-                      <span className="text-green-700">Toplam: {formatCurrency(totals.totalAmount)} ({totals.totalHours.toFixed(2)}s)</span>
+                      <span className="text-emerald-700">Toplam: {formatCurrency(totals.totalAmount)} ({totals.totalHours.toFixed(2)}s)</span>
                     </span>
                   </div>
                 </div>

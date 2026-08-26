@@ -14,6 +14,17 @@ import {
 import { Category } from '../api/category';
 import { useCategories } from '../context/CategoryContext';
 import { useToast } from '../context/ToastContext';
+import { PanelLoader } from '../components/Loaders';
+import {
+  IconAlertTriangle,
+  IconChevronDown,
+  IconClose,
+  IconInbox,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+  IconUsers,
+} from '../components/Icons';
 
 /**
  * Çalışan adını büyük harfe çevirir.
@@ -187,17 +198,17 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <div className="modal-header">
+          <h2 className="modal-title">
             {employee ? 'Çalışan Düzenle' : 'Yeni Çalışan Ekle'}
           </h2>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label htmlFor="employee_fullName" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="employee_fullName" className="form-label">
               Ad Soyad *
             </label>
             <input
@@ -205,18 +216,16 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
               type="text"
               value={formData.fullName}
               onChange={(e) => setFormData({ ...formData, fullName: toUpperTr(e.target.value) })}
-              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                errors.fullName ? 'border-red-500' : 'border-gray-300'
-              }`}
+              className={`field ${errors.fullName ? 'field-invalid' : ''}`}
               disabled={isLoading}
             />
             {errors.fullName && (
-              <p className="mt-1 text-sm text-red-600">{errors.fullName}</p>
+              <p className="form-error">{errors.fullName}</p>
             )}
           </div>
 
           <div>
-            <label htmlFor="employee_workArea" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="employee_workArea" className="form-label">
               Çalışma Alanı *
             </label>
             <CategorySelect
@@ -225,7 +234,7 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
               onChange={(code) => setFormData({ ...formData, workArea: code })}
               categories={categories}
               disabled={isLoading}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
             />
             {categories.length === 0 && (
               <p className="mt-1 text-sm text-amber-700">
@@ -234,23 +243,25 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
             )}
           </div>
 
-          <div className="flex items-center">
+          <label
+            htmlFor="isInsured"
+            className="flex cursor-pointer items-center gap-3 rounded-xl border border-ink-200 bg-ink-50/60 px-3.5 py-3 transition-colors hover:border-ink-300 hover:bg-ink-50"
+          >
             <input
               type="checkbox"
               id="isInsured"
               checked={formData.isInsured}
               onChange={(e) => setFormData({ ...formData, isInsured: e.target.checked })}
-              className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+              className="h-[18px] w-[18px] cursor-pointer rounded border-ink-300"
               disabled={isLoading}
             />
-            <label htmlFor="isInsured" className="ml-2 text-sm text-gray-700">
-              Sigortalı
-            </label>
-          </div>
+            <span className="text-sm font-semibold text-ink-700">Sigortalı</span>
+            <span className="ml-auto text-xs text-ink-400">SGK kapsamında çalışıyor</span>
+          </label>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="employee_startDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="employee_startDate" className="form-label">
                 İşe Giriş Tarihi *
               </label>
               <input
@@ -258,12 +269,12 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
                 disabled={isLoading}
               />
             </div>
             <div>
-              <label htmlFor="employee_endDate" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="employee_endDate" className="form-label">
                 İşten Çıkış Tarihi
               </label>
               <input
@@ -271,7 +282,7 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
                 type="date"
                 value={formData.endDate || ''}
                 onChange={(e) => setFormData({ ...formData, endDate: e.target.value || null })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
                 disabled={isLoading}
               />
             </div>
@@ -279,7 +290,7 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="employee_salary" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="employee_salary" className="form-label">
                 Maaş (₺) *
               </label>
               <input
@@ -287,19 +298,17 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
                 type="number"
                 value={formData.salary}
                 onChange={(e) => setFormData({ ...formData, salary: parseFloat(e.target.value) || 0 })}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.salary ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`field ${errors.salary ? 'field-invalid' : ''}`}
                 min="0"
                 step="0.01"
                 disabled={isLoading}
               />
               {errors.salary && (
-                <p className="mt-1 text-sm text-red-600">{errors.salary}</p>
+                <p className="form-error">{errors.salary}</p>
               )}
             </div>
             <div>
-              <label htmlFor="employee_workingDays" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="employee_workingDays" className="form-label">
                 Çalışma Gün Sayısı
               </label>
               <input
@@ -307,31 +316,29 @@ function EmployeeModal({ isOpen, onClose, onSave, employee, isLoading }: Employe
                 type="number"
                 value={formData.workingDays}
                 onChange={(e) => setFormData({ ...formData, workingDays: parseInt(e.target.value) || 30 })}
-                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-                  errors.workingDays ? 'border-red-500' : 'border-gray-300'
-                }`}
+                className={`field ${errors.workingDays ? 'field-invalid' : ''}`}
                 min="1"
                 max="31"
                 disabled={isLoading}
               />
               {errors.workingDays && (
-                <p className="mt-1 text-sm text-red-600">{errors.workingDays}</p>
+                <p className="form-error">{errors.workingDays}</p>
               )}
             </div>
           </div>
 
-          <div className="flex justify-end space-x-3 pt-4">
+          <div className="-mx-6 -mb-6 mt-6 flex flex-wrap justify-end gap-3 border-t border-ink-200/70 bg-ink-50/60 px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="btn btn-secondary"
               disabled={isLoading}
             >
               İptal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+              className="btn btn-primary"
               disabled={isLoading}
             >
               {isLoading ? 'Kaydediliyor...' : 'Kaydet'}
@@ -457,74 +464,87 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Toplu Çalışan Ekle</h2>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-4xl max-h-[90vh] flex flex-col">
+        <div className="modal-header">
+          <h2 className="modal-title">Toplu Çalışan Ekle</h2>
           <button
             type="button"
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
+            className="btn-icon"
+            aria-label="Kapat"
             disabled={isLoading}
           >
-            ×
+            <IconClose />
           </button>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="p-6 space-y-4 overflow-y-auto max-h-[70vh]">
+          <div className="flex-1 space-y-4 overflow-y-auto bg-ink-50/40 p-5 sm:p-6">
             {errors.length > 0 && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded text-sm">
+              <div className="alert alert-danger flex-col items-stretch gap-1.5">
+                <span className="flex items-center gap-2 font-semibold">
+                  <IconAlertTriangle className="h-[18px] w-[18px] shrink-0" />
+                  Lütfen aşağıdaki alanları düzeltin
+                </span>
                 {errors.map((error, index) => (
-                  <div key={`${error}-${index}`}>{error}</div>
+                  <div key={`${error}-${index}`} className="pl-6 text-[13px]">
+                    {error}
+                  </div>
                 ))}
               </div>
             )}
 
             {groups.map((group, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-4 space-y-4 bg-gray-50/50">
+              <div key={index} className="card space-y-4 p-4 sm:p-5">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-gray-800">Kategori {index + 1}</h3>
+                  <h3 className="flex items-center gap-2 font-display text-sm font-bold text-ink-800">
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-brand-100 text-[11px] font-bold text-brand-700">
+                      {index + 1}
+                    </span>
+                    Kategori
+                  </h3>
                   <button
                     type="button"
                     onClick={() => removeGroup(index)}
-                    className="text-sm text-red-600 hover:text-red-800 disabled:text-gray-400"
+                    className="link-danger text-sm"
                     disabled={isLoading || groups.length === 1}
                   >
+                    <IconTrash className="h-4 w-4" />
                     Kaldır
                   </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div>
-                    <label htmlFor={`bulk_workarea_${index}`} className="block text-sm font-medium text-gray-700 mb-1">Çalışma Alanı</label>
+                    <label htmlFor={`bulk_workarea_${index}`} className="form-label">Çalışma Alanı</label>
                     <CategorySelect
                       id={`bulk_workarea_${index}`}
                       value={group.workArea}
                       onChange={(code) => updateGroupWorkArea(index, code)}
                       categories={categories}
                       disabled={isLoading}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+                      className="field field-sm"
                     />
                   </div>
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm border border-gray-200 rounded-md overflow-hidden">
-                    <thead className="bg-slate-100 text-slate-700">
+                  <table className="min-w-full overflow-hidden rounded-xl border border-ink-200 text-sm">
+                    <thead className="bg-ink-50">
                       <tr>
-                        <th className="px-2 py-2 text-left font-semibold">Ad Soyad</th>
-                        <th className="px-2 py-2 text-left font-semibold">Sigortalı</th>
-                        <th className="px-2 py-2 text-left font-semibold">Maaş</th>
-                        <th className="px-2 py-2 text-left font-semibold">Çalışma Günü</th>
-                        <th className="px-2 py-2 text-left font-semibold">İşe Giriş</th>
-                        <th className="px-2 py-2 text-left font-semibold">İşten Çıkış</th>
-                        <th className="px-2 py-2 text-right font-semibold">İşlem</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Ad Soyad</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Sigortalı</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Maaş</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">Çalışma Günü</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">İşe Giriş</th>
+                        <th className="px-2 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">İşten Çıkış</th>
+                        <th className="px-2 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.04em] text-ink-500">İşlem</th>
                       </tr>
                     </thead>
                     <tbody>
                       {group.rows.map((row, rowIndex) => (
-                        <tr key={row.id} className="border-t border-gray-200 bg-white">
+                        <tr key={row.id} className="border-t border-ink-200/70 bg-white">
                           <td className="px-2 py-2 min-w-[190px]">
                             <label htmlFor={`bulk_fullname_${index}_${row.id}`} className="sr-only">Ad Soyad</label>
                             <input
@@ -532,7 +552,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               type="text"
                               value={row.fullName}
                               onChange={(e) => updateRow(index, row.id, 'fullName', toUpperTr(e.target.value))}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               placeholder={`Çalışan ${rowIndex + 1}`}
                               disabled={isLoading}
                             />
@@ -543,7 +563,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               id={`bulk_isinsured_${index}_${row.id}`}
                               value={row.isInsured ? 'yes' : 'no'}
                               onChange={(e) => updateRow(index, row.id, 'isInsured', e.target.value === 'yes')}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               disabled={isLoading}
                             >
                               <option value="yes">Evet</option>
@@ -557,7 +577,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               type="number"
                               value={row.salary}
                               onChange={(e) => updateRow(index, row.id, 'salary', parseFloat(e.target.value) || 0)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               min="0"
                               step="0.01"
                               disabled={isLoading}
@@ -570,7 +590,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               type="number"
                               value={row.workingDays}
                               onChange={(e) => updateRow(index, row.id, 'workingDays', parseInt(e.target.value) || 30)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               min="1"
                               max="31"
                               disabled={isLoading}
@@ -583,7 +603,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               type="date"
                               value={row.startDate}
                               onChange={(e) => updateRow(index, row.id, 'startDate', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               disabled={isLoading}
                             />
                           </td>
@@ -594,7 +614,7 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                               type="date"
                               value={row.endDate}
                               onChange={(e) => updateRow(index, row.id, 'endDate', e.target.value)}
-                              className="w-full px-2 py-1 border border-gray-300 rounded"
+                              className="field-cell"
                               disabled={isLoading}
                             />
                           </td>
@@ -602,10 +622,11 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                             <button
                               type="button"
                               onClick={() => removeRow(index, row.id)}
-                              className="text-sm text-red-600 hover:text-red-800 disabled:text-gray-400"
+                              className="link-danger text-sm"
                               disabled={isLoading || group.rows.length === 1}
                             >
-                              Satır Sil
+                              <IconTrash className="h-4 w-4" />
+                              Sil
                             </button>
                           </td>
                         </tr>
@@ -615,10 +636,11 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
                   <button
                     type="button"
                     onClick={() => addRow(index)}
-                    className="mt-3 px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100"
+                    className="btn btn-sm mt-3 border border-dashed border-brand-300 bg-brand-50/60 text-brand-700 hover:bg-brand-100"
                     disabled={isLoading}
                   >
-                    + Satır Ekle
+                    <IconPlus className="h-4 w-4" />
+                    Satır Ekle
                   </button>
                 </div>
               </div>
@@ -627,29 +649,31 @@ function BulkEmployeeModal({ isOpen, onClose, onSave, isLoading }: BulkEmployeeM
             <button
               type="button"
               onClick={addGroup}
-              className="px-3 py-2 text-sm font-medium text-indigo-700 bg-indigo-50 rounded-md hover:bg-indigo-100"
+              className="btn btn-sm w-full border border-dashed border-brand-300 bg-brand-50/60 text-brand-700 hover:bg-brand-100"
               disabled={isLoading}
             >
-              + Kategori Ekle
+              <IconPlus className="h-4 w-4" />
+              Kategori Ekle
             </button>
           </div>
 
-          <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between bg-white">
-            <p className="text-sm text-gray-600">
-              Toplam hazırlanmış çalışan: <span className="font-semibold">{totalEmployeeCount}</span>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-ink-200/70 bg-white px-5 py-4 sm:px-6">
+            <p className="text-sm text-ink-500">
+              Toplam hazırlanmış çalışan:{' '}
+              <span className="badge badge-brand ml-1">{totalEmployeeCount}</span>
             </p>
             <div className="flex gap-3">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                className="btn btn-secondary"
                 disabled={isLoading}
               >
                 İptal
               </button>
               <button
                 type="submit"
-                className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                className="btn btn-primary"
                 disabled={isLoading}
               >
                 {isLoading ? 'Kaydediliyor...' : 'Toplam Listeyi Kaydet'}
@@ -676,31 +700,27 @@ function DeleteModal({ isOpen, onClose, onConfirm, employeeName, isLoading }: De
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-sm">
         <div className="p-6">
-          <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full mb-4">
-            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+            <IconTrash className="h-7 w-7" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 text-center mb-2">
-            Çalışanı Sil
-          </h3>
-          <p className="text-sm text-gray-500 text-center mb-6">
+          <h3 className="modal-title text-center">Çalışanı Sil</h3>
+          <p className="mt-2 text-center text-sm leading-relaxed text-ink-500">
             <strong>{employeeName}</strong> adlı çalışanı silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.
           </p>
-          <div className="flex space-x-3">
+          <div className="mt-6 flex gap-3">
             <button
               onClick={onClose}
-              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="btn btn-secondary flex-1"
               disabled={isLoading}
             >
               İptal
             </button>
             <button
               onClick={onConfirm}
-              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 disabled:opacity-50"
+              className="btn btn-danger flex-1"
               disabled={isLoading}
             >
               {isLoading ? 'Siliniyor...' : 'Sil'}
@@ -726,18 +746,16 @@ function EmployeeCard({ employee, onEdit, onDelete, formatDate, formatCurrency }
   const { labelOf } = useCategories();
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
+    <div className="card card-hover p-4">
       <div className="flex justify-between items-start mb-3">
-        <div>
-          <h3 className="text-base font-semibold text-gray-900">{employee.fullName}</h3>
-          <p className="text-sm text-gray-500">{labelOf(employee.workArea)}</p>
+        <div className="min-w-0">
+          <h3 className="font-display text-base font-bold tracking-tight text-ink-900">
+            {employee.fullName}
+          </h3>
+          <p className="mt-0.5 text-sm text-ink-500">{labelOf(employee.workArea)}</p>
         </div>
         <span
-          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-            employee.isInsured
-              ? 'bg-green-100 text-green-800'
-              : 'bg-gray-100 text-gray-800'
-          }`}
+          className={`badge ${employee.isInsured ? 'badge-success' : 'badge-neutral'}`}
         >
           {employee.isInsured ? 'Sigortalı' : 'Sigortasız'}
         </span>
@@ -745,34 +763,30 @@ function EmployeeCard({ employee, onEdit, onDelete, formatDate, formatCurrency }
       
       <div className="grid grid-cols-2 gap-2 text-sm mb-3">
         <div>
-          <span className="text-gray-500">Maaş:</span>
-          <span className="ml-1 font-medium text-gray-900">{formatCurrency(employee.salary)}</span>
+          <span className="text-ink-500">Maaş:</span>
+          <span className="ml-1 font-medium text-ink-900">{formatCurrency(employee.salary)}</span>
         </div>
         <div>
-          <span className="text-gray-500">Çalışma Günü:</span>
-          <span className="ml-1 font-medium text-gray-900">{employee.workingDays}</span>
+          <span className="text-ink-500">Çalışma Günü:</span>
+          <span className="ml-1 font-medium text-ink-900">{employee.workingDays}</span>
         </div>
         <div>
-          <span className="text-gray-500">İşe Giriş:</span>
-          <span className="ml-1 text-gray-900">{formatDate(employee.startDate)}</span>
+          <span className="text-ink-500">İşe Giriş:</span>
+          <span className="ml-1 text-ink-900">{formatDate(employee.startDate)}</span>
         </div>
         <div>
-          <span className="text-gray-500">İşten Çıkış:</span>
-          <span className="ml-1 text-gray-900">{employee.endDate ? formatDate(employee.endDate) : '-'}</span>
+          <span className="text-ink-500">İşten Çıkış:</span>
+          <span className="ml-1 text-ink-900">{employee.endDate ? formatDate(employee.endDate) : '-'}</span>
         </div>
       </div>
       
-      <div className="flex justify-end space-x-3 pt-3 border-t border-gray-100">
-        <button
-          onClick={() => onEdit(employee)}
-          className="px-3 py-1.5 text-sm font-medium text-indigo-600 hover:text-indigo-800 hover:bg-indigo-50 rounded-md transition-colors"
-        >
+      <div className="flex justify-end gap-2 border-t border-ink-200/70 pt-3">
+        <button onClick={() => onEdit(employee)} className="link-action">
+          <IconPencil className="h-4 w-4" />
           Düzenle
         </button>
-        <button
-          onClick={() => onDelete(employee)}
-          className="px-3 py-1.5 text-sm font-medium text-red-600 hover:text-red-800 hover:bg-red-50 rounded-md transition-colors"
-        >
+        <button onClick={() => onDelete(employee)} className="link-danger">
+          <IconTrash className="h-4 w-4" />
           Sil
         </button>
       </div>
@@ -933,74 +947,79 @@ export default function EmployeesPage() {
   const workAreas: WorkArea[] = [...orderedCodes, ...orphanAreas];
 
   if (isLoading) {
-    return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-600">Yükleniyor...</span>
-        </div>
-      </div>
-    );
+    return <PanelLoader label="Çalışan listesi yükleniyor..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            Çalışanlar
-            <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-              {activeEmployees.length} aktif
-            </span>
-            {inactiveEmployees.length > 0 && (
-              <span className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-amber-200">
-                {inactiveEmployees.length} pasif
-              </span>
-            )}
-          </h1>
-          <div className="w-full sm:w-auto flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={() => navigate('/trafik-cezalari')}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-md hover:bg-slate-200 focus:outline-none focus:ring-2 focus:ring-slate-500"
-            >
-              Trafik Cezası Ekle
-            </button>
-            <button
-              onClick={handleAddClick}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              + Yeni Çalışan
-            </button>
-            <button
-              onClick={() => setIsBulkModalOpen(true)}
-              className="w-full sm:w-auto px-4 py-2 text-sm font-medium text-white bg-emerald-600 rounded-md hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-            >
-              + Toplu Ekle
-            </button>
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconUsers className="h-[22px] w-[22px]" />
+          </span>
+          <div>
+            <h1 className="page-title">
+              Çalışanlar
+              <span className="badge badge-neutral">{activeEmployees.length} aktif</span>
+              {inactiveEmployees.length > 0 && (
+                <span className="badge badge-warning">{inactiveEmployees.length} pasif</span>
+              )}
+            </h1>
+            <p className="page-desc">
+              Kadro kayıtları, maaş ve sigorta bilgileri. Kategoriler bölüm sırasını belirler.
+            </p>
           </div>
         </div>
 
-        {error && (
-          <div className="mx-4 sm:mx-6 my-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-            {error}
-            <button
-              onClick={() => setError(null)}
-              className="float-right text-red-700 hover:text-red-900"
-            >
-              ×
-            </button>
-          </div>
-        )}
-      </div>
+        <div className="grid w-full grid-cols-1 gap-2 sm:auto-cols-max sm:grid-flow-col lg:w-auto">
+          <button onClick={() => navigate('/trafik-cezalari')} className="btn btn-secondary">
+            <IconAlertTriangle className="h-[18px] w-[18px]" />
+            Trafik Cezası
+          </button>
+          <button onClick={() => setIsBulkModalOpen(true)} className="btn btn-secondary">
+            <IconPlus className="h-[18px] w-[18px]" />
+            Toplu Ekle
+          </button>
+          <button onClick={handleAddClick} className="btn btn-primary">
+            <IconPlus className="h-[18px] w-[18px]" />
+            Yeni Çalışan
+          </button>
+        </div>
+      </header>
+
+      {error && (
+        <div className="alert alert-danger">
+          <IconAlertTriangle className="h-5 w-5 shrink-0 text-rose-500" />
+          <span className="flex-1 font-medium">{error}</span>
+          <button
+            onClick={() => setError(null)}
+            className="btn-icon h-7 w-7 shrink-0 text-rose-500 hover:bg-rose-100 hover:text-rose-700"
+            aria-label="Hatayı kapat"
+          >
+            <IconClose className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {employees.length === 0 ? (
-        <div className="bg-white shadow rounded-lg p-12 text-center text-gray-500">
-          Henüz çalışan bulunmuyor. Yeni çalışan eklemek için yukarıdaki butonu kullanın.
+        <div className="card empty-state">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+            <IconInbox className="h-7 w-7" />
+          </span>
+          <p className="font-display text-base font-semibold text-ink-800">
+            Henüz çalışan bulunmuyor
+          </p>
+          <p className="max-w-sm text-sm text-ink-500">
+            İlk kaydı oluşturmak için yukarıdaki <strong>Yeni Çalışan</strong> butonunu kullanın.
+          </p>
         </div>
       ) : (
         <>
         {activeEmployees.length === 0 && (
-          <div className="bg-white shadow rounded-lg p-8 text-center text-gray-500">
+          <div className="card empty-state text-sm text-ink-500">
+            <span className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-500 ring-1 ring-amber-100">
+              <IconInbox className="h-6 w-6" />
+            </span>
             Aktif çalışan bulunmuyor. Tüm çalışanlar işten çıkış almış durumda.
           </div>
         )}
@@ -1012,12 +1031,12 @@ export default function EmployeesPage() {
           const sorted = [...areaEmployees].sort((a, b) => a.fullName.localeCompare(b.fullName, 'tr-TR'));
 
           return (
-            <div key={area} className="bg-white shadow rounded-lg overflow-hidden">
-              <div className="px-6 py-4 bg-gradient-to-r from-indigo-50 via-white to-slate-50 border-b border-slate-200 flex items-center gap-3">
-                <div className="h-6 w-1.5 rounded-full bg-indigo-600" />
-                <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+            <div key={area} className="card overflow-hidden">
+              <div className="section-head">
+                <div className="section-bar" />
+                <h2 className="section-title">
                   {labelOf(area)}
-                  <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
+                  <span className="badge badge-neutral ml-2">
                     {sorted.length} kişi
                   </span>
                 </h2>
@@ -1039,78 +1058,76 @@ export default function EmployeesPage() {
 
               {/* Desktop table view */}
               <div className="hidden md:block overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
+                <table className="min-w-full divide-y divide-ink-200/60">
+                  <thead className="thead">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         Ad Soyad
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         Çalışma Alanı
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         Sigorta
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         İşe Giriş
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         İşten Çıkış
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         Maaş
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th">
                         Çalışma Günü
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="th-right">
                         İşlemler
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-ink-200/60">
                     {sorted.map((employee) => (
-                      <tr key={employee.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                      <tr key={employee.id} className="hover:bg-ink-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink-900">
                           {employee.fullName}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           {labelOf(employee.workArea)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              employee.isInsured
-                                ? 'bg-green-100 text-green-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}
+                            className={`badge ${employee.isInsured ? 'badge-success' : 'badge-neutral'}`}
                           >
                             {employee.isInsured ? 'Sigortalı' : 'Sigortasız'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           {formatDate(employee.startDate)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           {employee.endDate ? formatDate(employee.endDate) : '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           {formatCurrency(employee.salary)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                           {employee.workingDays}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                           <button
                             onClick={() => handleEditClick(employee)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="link-action mr-1"
                           >
+                            <IconPencil className="h-4 w-4" />
                             Düzenle
                           </button>
                           <button
                             onClick={() => handleDeleteClick(employee)}
-                            className="text-red-600 hover:text-red-900"
+                            className="link-danger"
                           >
+                            <IconTrash className="h-4 w-4" />
                             Sil
                           </button>
                         </td>
@@ -1125,30 +1142,27 @@ export default function EmployeesPage() {
 
         {/* Aktif olmayan (işten çıkış almış) çalışanlar - açılır/kapanır panel */}
         {inactiveEmployees.length > 0 && (
-          <div className="bg-white shadow rounded-lg overflow-hidden">
+          <div className="card overflow-hidden">
             <button
               type="button"
               onClick={() => setIsInactiveOpen((open) => !open)}
               aria-expanded={isInactiveOpen}
-              className={`w-full px-6 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 flex items-center justify-between gap-3 text-left hover:bg-slate-50 ${
-                isInactiveOpen ? 'border-b border-slate-200' : ''
+              className={`w-full px-5 sm:px-6 py-4 flex items-center justify-between gap-3 text-left transition-colors hover:bg-ink-50/70 ${
+                isInactiveOpen ? 'border-b border-ink-200/70' : ''
               }`}
             >
               <div className="flex items-center gap-3">
-                <div className="h-6 w-1.5 rounded-full bg-slate-400" />
-                <h2 className="text-lg font-semibold tracking-tight text-slate-600">
+                <div className="section-bar from-ink-300 to-ink-500" />
+                <h2 className="section-title text-ink-600">
                   Aktif Olmayan Çalışanlar
-                  <span className="ml-2 inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-sm font-medium text-amber-700 ring-1 ring-amber-200">
-                    {inactiveEmployees.length} kişi
-                  </span>
+                  <span className="badge badge-warning">{inactiveEmployees.length} kişi</span>
                 </h2>
               </div>
-              <span
-                aria-hidden="true"
-                className={`text-slate-500 text-sm transition-transform ${isInactiveOpen ? 'rotate-180' : ''}`}
-              >
-                ▼
-              </span>
+              <IconChevronDown
+                className={`h-5 w-5 shrink-0 text-ink-400 transition-transform duration-200 ${
+                  isInactiveOpen ? 'rotate-180' : ''
+                }`}
+              />
             </button>
 
             {isInactiveOpen && (
@@ -1169,60 +1183,60 @@ export default function EmployeesPage() {
 
                 {/* Desktop table view */}
                 <div className="hidden md:block overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                  <table className="min-w-full divide-y divide-ink-200/60">
+                    <thead className="thead">
                       <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ad Soyad</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışma Alanı</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Sigorta</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşe Giriş</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">İşten Çıkış</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Maaş</th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışma Günü</th>
-                        <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlemler</th>
+                        <th className="th">Ad Soyad</th>
+                        <th className="th">Çalışma Alanı</th>
+                        <th className="th">Sigorta</th>
+                        <th className="th">İşe Giriş</th>
+                        <th className="th">İşten Çıkış</th>
+                        <th className="th">Maaş</th>
+                        <th className="th">Çalışma Günü</th>
+                        <th className="th-right">İşlemler</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
+                    <tbody className="divide-y divide-ink-200/60">
                       {inactiveEmployees.map((employee) => (
-                        <tr key={employee.id} className="hover:bg-gray-50 bg-slate-50/60">
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-600">
+                        <tr key={employee.id} className="hover:bg-ink-50 bg-ink-50/60">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-ink-600">
                             {employee.fullName}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                             {labelOf(employee.workArea)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                             <span
-                              className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                                employee.isInsured ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
-                              }`}
+                              className={`badge ${employee.isInsured ? 'badge-success' : 'badge-neutral'}`}
                             >
                               {employee.isInsured ? 'Sigortalı' : 'Sigortasız'}
                             </span>
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                             {formatDate(employee.startDate)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-red-600">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-rose-600">
                             {employee.endDate ? formatDate(employee.endDate) : '-'}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                             {formatCurrency(employee.salary)}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-500">
                             {employee.workingDays}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <button
                               onClick={() => handleEditClick(employee)}
-                              className="text-indigo-600 hover:text-indigo-900 mr-4"
+                              className="link-action mr-1"
                             >
+                              <IconPencil className="h-4 w-4" />
                               Düzenle
                             </button>
                             <button
                               onClick={() => handleDeleteClick(employee)}
-                              className="text-red-600 hover:text-red-900"
+                              className="link-danger"
                             >
+                              <IconTrash className="h-4 w-4" />
                               Sil
                             </button>
                           </td>
@@ -1232,7 +1246,7 @@ export default function EmployeesPage() {
                   </table>
                 </div>
 
-                <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-gray-500">
+                <div className="card-footer">
                   Bu çalışanlar işten çıkış tarihinden sonraki dönemlerin puantaj tablosunda görünmez.
                   Tekrar aktifleştirmek için "Düzenle" ile işten çıkış tarihini silebilirsin.
                 </div>

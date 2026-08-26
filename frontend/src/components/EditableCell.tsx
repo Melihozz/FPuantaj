@@ -163,7 +163,7 @@ export default function EditableCell({
     return (
       <div className="relative">
         {prefix && (
-          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+          <span className="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-ink-400 text-sm">
             {prefix}
           </span>
         )}
@@ -174,14 +174,16 @@ export default function EditableCell({
           onChange={handleInputChange}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          className={`w-full py-1 text-sm border rounded focus:outline-none focus:ring-2 focus:ring-indigo-500 ${
-            error ? 'border-red-500' : 'border-indigo-500'
+          className={`w-full py-1 text-sm rounded-lg border bg-white shadow-sm transition-shadow focus:outline-none focus:ring-4 ${
+            error
+              ? 'border-rose-400 focus:ring-rose-500/20'
+              : 'border-brand-500 focus:ring-brand-500/20'
           } ${prefix ? 'pl-6 pr-2' : 'px-2'} ${className}`}
           disabled={disabled}
           inputMode="decimal"
         />
         {error && (
-          <div className="absolute z-10 top-full left-0 mt-1 px-2 py-1 text-xs text-white bg-red-500 rounded shadow-lg whitespace-nowrap">
+          <div className="absolute z-20 top-full left-0 mt-1.5 px-2.5 py-1.5 text-xs font-medium text-white bg-rose-600 rounded-lg shadow-lifted whitespace-nowrap animate-scale-in">
             {error}
           </div>
         )}
@@ -193,12 +195,14 @@ export default function EditableCell({
   return (
     <div
       onClick={handleClick}
-      className={`px-2 py-1 text-sm cursor-pointer hover:bg-slate-50 rounded transition-colors ${
-        disabled ? 'cursor-not-allowed opacity-50' : ''
+      className={`group px-2 py-1 text-sm rounded-lg tabular-nums transition-all duration-150 ${
+        disabled
+          ? 'cursor-not-allowed opacity-50'
+          : 'cursor-pointer hover:bg-white hover:shadow-[0_0_0_1px_theme(colors.brand.300),0_1px_2px_rgb(17_20_29/.06)]'
       } ${prefix ? 'inline-flex items-center gap-1' : ''} ${className}`}
       title={disabled ? 'Düzenleme devre dışı' : 'Düzenlemek için tıklayın'}
     >
-      {prefix && <span className="text-gray-500">{prefix}</span>}
+      {prefix && <span className="text-ink-400">{prefix}</span>}
       {formatDisplayValue(value)}
     </div>
   );

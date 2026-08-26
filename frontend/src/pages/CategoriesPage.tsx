@@ -9,6 +9,16 @@ import {
 import { isApiError } from '../api/employee';
 import { useCategories } from '../context/CategoryContext';
 import { useToast } from '../context/ToastContext';
+import { PanelLoader } from '../components/Loaders';
+import {
+  IconCheck,
+  IconDrag,
+  IconInbox,
+  IconLayers,
+  IconPencil,
+  IconPlus,
+  IconTrash,
+} from '../components/Icons';
 
 export default function CategoriesPage() {
   const { categories, isLoading, refresh } = useCategories();
@@ -118,31 +128,37 @@ export default function CategoriesPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="bg-white shadow rounded-lg p-6 text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600 mx-auto" />
-      </div>
-    );
+    return <PanelLoader label="Kategoriler yükleniyor..." />;
   }
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg px-6 py-4">
-        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-          Kategoriler
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-            {categories.length} kategori
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconLayers className="h-[22px] w-[22px]" />
           </span>
-        </h1>
-        <p className="mt-1 text-sm text-gray-500">
-          Çalışan eklerken seçilen çalışma alanları. Sıralama; Puantaj, Çalışanlar ve Mesailer
-          sayfalarındaki grup sırasını belirler.
-        </p>
-      </div>
+          <div>
+            <h1 className="page-title">
+              Kategoriler
+              <span className="badge badge-neutral">{categories.length} kategori</span>
+            </h1>
+            <p className="page-desc">
+              Çalışan eklerken seçilen çalışma alanları. Sıralama; Puantaj, Çalışanlar ve Mesailer
+              sayfalarındaki grup sırasını belirler.
+            </p>
+          </div>
+        </div>
+      </header>
 
-      <div className="bg-white shadow rounded-lg px-6 py-4">
-        <h2 className="text-base font-semibold text-slate-900 mb-3">Yeni Kategori Ekle</h2>
-        <form onSubmit={handleCreate} className="flex flex-col sm:flex-row gap-3">
+      <div className="card px-5 sm:px-6 py-5">
+        <h2 className="card-title mb-4 flex items-center gap-2.5">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-brand-50 text-brand-600 ring-1 ring-brand-100">
+            <IconPlus className="h-[18px] w-[18px]" />
+          </span>
+          Yeni Kategori Ekle
+        </h2>
+        <form onSubmit={handleCreate} className="flex flex-col gap-3 sm:flex-row">
           <div className="flex-1">
             <label htmlFor="new_category_label" className="sr-only">
               Kategori adı
@@ -154,42 +170,68 @@ export default function CategoriesPage() {
               maxLength={50}
               onChange={(e) => setNewLabel(e.target.value)}
               placeholder="Örn. Bursa Şubesi"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
+              className="field"
               disabled={isCreating}
             />
           </div>
           <button
             type="submit"
             disabled={isCreating || !newLabel.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            className="btn btn-primary"
           >
-            {isCreating ? 'Ekleniyor...' : '+ Kategori Ekle'}
+            {isCreating ? (
+              <>
+                <span className="spinner h-4 w-4 border-white/40 border-t-white" />
+                Ekleniyor...
+              </>
+            ) : (
+              <>
+                <IconPlus className="h-[18px] w-[18px]" />
+                Kategori Ekle
+              </>
+            )}
           </button>
         </form>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Tanımlı Kategoriler</h2>
-          <p className="mt-0.5 text-xs text-gray-500">
-            Satırları sürükleyerek sırayı değiştirebilirsin.
-          </p>
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <div>
+            <h2 className="card-title">Tanımlı Kategoriler</h2>
+            <p className="mt-0.5 text-xs text-ink-500">
+              Satırları sürükleyerek sırayı değiştirebilirsin.
+            </p>
+          </div>
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-ink-400">
+            <IconDrag className="h-4 w-4" />
+            Sürükle-bırak sıralama
+          </span>
         </div>
 
         {categories.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">Henüz kategori tanımlanmamış.</div>
+          <div className="empty-state">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+              <IconInbox className="h-7 w-7" />
+            </span>
+            <p className="font-display text-base font-semibold text-ink-800">
+              Henüz kategori tanımlanmamış
+            </p>
+            <p className="max-w-sm text-sm text-ink-500">
+              Yukarıdaki formdan ilk çalışma alanını ekleyin.
+            </p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-ink-200/60">
+              <thead className="thead">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kod</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Çalışan</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">İşlem</th>
+                  <th className="th">Kategori</th>
+                  <th className="th">Kod</th>
+                  <th className="th-right">Çalışan</th>
+                  <th className="th-right">İşlem</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-ink-200/60">
                 {categories.map((category) => (
                   <tr
                     key={category.id}
@@ -198,9 +240,9 @@ export default function CategoriesPage() {
                     onDragEnd={() => setDraggingId(null)}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={() => handleDrop(category.id)}
-                    className={`hover:bg-gray-50 ${draggingId === category.id ? 'opacity-50' : ''} ${
-                      editingId === category.id ? '' : 'cursor-grab'
-                    }`}
+                    className={`transition-colors hover:bg-brand-50/40 ${
+                      draggingId === category.id ? 'opacity-50' : ''
+                    } ${editingId === category.id ? '' : 'cursor-grab'}`}
                   >
                     <td className="px-6 py-4 text-sm">
                       {editingId === category.id ? (
@@ -219,47 +261,46 @@ export default function CategoriesPage() {
                               if (e.key === 'Enter') handleSaveEdit(category);
                               if (e.key === 'Escape') setEditingId(null);
                             }}
-                            className="px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="field-cell w-auto"
                             disabled={isSaving}
                           />
                           <button
                             type="button"
                             onClick={() => handleSaveEdit(category)}
                             disabled={isSaving}
-                            className="text-sm font-semibold text-indigo-600 hover:text-indigo-800 disabled:opacity-50"
+                            className="link-action"
                           >
+                            <IconCheck className="h-4 w-4" />
                             {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingId(null)}
                             disabled={isSaving}
-                            className="text-sm text-gray-500 hover:text-gray-700"
+                            className="link-muted"
                           >
                             Vazgeç
                           </button>
                         </div>
                       ) : (
-                        <span className="font-medium text-gray-900">{category.label}</span>
+                        <span className="font-medium text-ink-900">{category.label}</span>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <code className="px-2 py-0.5 rounded bg-slate-100 text-slate-600 text-xs">
-                        {category.code}
-                      </code>
+                      <code className="kbd">{category.code}</code>
                     </td>
-                    <td className="px-6 py-4 text-sm text-right text-gray-700">
+                    <td className="px-6 py-4 text-sm text-right text-ink-700">
                       {category.employeeCount}
                     </td>
                     <td className="px-6 py-4 text-right text-sm whitespace-nowrap">
                       {confirmingDeleteId === category.id ? (
                         <span className="inline-flex items-center gap-2">
-                          <span className="text-xs text-gray-600">Silinsin mi?</span>
+                          <span className="text-xs text-ink-600">Silinsin mi?</span>
                           <button
                             type="button"
                             onClick={() => handleDelete(category)}
                             disabled={deletingId === category.id}
-                            className="font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                            className="link-danger"
                           >
                             {deletingId === category.id ? 'Siliniyor...' : 'Evet, Sil'}
                           </button>
@@ -267,7 +308,7 @@ export default function CategoriesPage() {
                             type="button"
                             onClick={() => setConfirmingDeleteId(null)}
                             disabled={deletingId === category.id}
-                            className="text-gray-500 hover:text-gray-700"
+                            className="link-muted"
                           >
                             Vazgeç
                           </button>
@@ -277,8 +318,9 @@ export default function CategoriesPage() {
                           <button
                             type="button"
                             onClick={() => startEdit(category)}
-                            className="text-indigo-600 hover:text-indigo-900 mr-4"
+                            className="link-action mr-1"
                           >
+                            <IconPencil className="h-4 w-4" />
                             Düzenle
                           </button>
                           <button
@@ -290,8 +332,9 @@ export default function CategoriesPage() {
                                 ? 'Bu kategoride çalışan var, önce onları başka kategoriye taşıyın'
                                 : undefined
                             }
-                            className="text-red-600 hover:text-red-900 disabled:text-gray-300 disabled:cursor-not-allowed"
+                            className="link-danger"
                           >
+                            <IconTrash className="h-4 w-4" />
                             Sil
                           </button>
                         </>
@@ -304,7 +347,7 @@ export default function CategoriesPage() {
           </div>
         )}
 
-        <div className="px-6 py-3 bg-slate-50 border-t border-slate-200 text-xs text-gray-500">
+        <div className="card-footer">
           Kategori adını değiştirmek mevcut çalışanları etkilemez; kod sabit kalır. İçinde çalışan
           bulunan kategori silinemez.
         </div>

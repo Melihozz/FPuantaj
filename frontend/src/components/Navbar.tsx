@@ -1,10 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Logo } from './Brand';
+import {
+  IconChevronDown,
+  IconClose,
+  IconGrid,
+  IconClock,
+  IconHistory,
+  IconLayers,
+  IconLogout,
+  IconMenu,
+  IconSliders,
+  IconUsers,
+} from './Icons';
+
+type IconComponent = (props: { className?: string }) => JSX.Element;
 
 interface NavItem {
   path: string;
   label: string;
+  icon: IconComponent;
+  desc?: string;
 }
 
 export default function Navbar() {
@@ -12,18 +29,31 @@ export default function Navbar() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDefsMenuOpen, setIsDefsMenuOpen] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   const defsMenuRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   const navItems: NavItem[] = [
-    { path: '/', label: 'Puantaj' },
-    { path: '/mesailer', label: 'Mesailer' },
-    { path: '/log', label: 'İşlem Geçmişi' },
+    { path: '/', label: 'Puantaj', icon: IconGrid },
+    { path: '/mesailer', label: 'Mesailer', icon: IconClock },
+    { path: '/log', label: 'İşlem Geçmişi', icon: IconHistory },
   ];
 
   // "Tanımlamalar" altındaki yönetim sayfaları
   const definitionItems: NavItem[] = [
-    { path: '/calisanlar', label: 'Çalışanlar' },
-    { path: '/kategoriler', label: 'Kategoriler' },
+    {
+      path: '/calisanlar',
+      label: 'Çalışanlar',
+      icon: IconUsers,
+      desc: 'Kadro, maaş ve sigorta bilgileri',
+    },
+    {
+      path: '/kategoriler',
+      label: 'Kategoriler',
+      icon: IconLayers,
+      desc: 'Çalışma alanları ve sıralama',
+    },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -32,17 +62,34 @@ export default function Navbar() {
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  // Dışarı tıklayınca veya Esc ile açılır menüyü kapat
+  const initials = (user?.username ?? '?').trim().charAt(0).toLocaleUpperCase('tr-TR');
+
+  // Sayfa kaydırıldığında üst çubuğa derinlik ver
   useEffect(() => {
-    if (!isDefsMenuOpen) return;
+    const onScroll = () => setIsScrolled(window.scrollY > 4);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // Dışarı tıklayınca veya Esc ile açılır menüleri kapat
+  useEffect(() => {
+    if (!isDefsMenuOpen && !isUserMenuOpen) return;
 
     const handlePointerDown = (event: MouseEvent) => {
-      if (defsMenuRef.current && !defsMenuRef.current.contains(event.target as Node)) {
+      const target = event.target as Node;
+      if (defsMenuRef.current && !defsMenuRef.current.contains(target)) {
         setIsDefsMenuOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(target)) {
+        setIsUserMenuOpen(false);
       }
     };
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsDefsMenuOpen(false);
+      if (event.key === 'Escape') {
+        setIsDefsMenuOpen(false);
+        setIsUserMenuOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handlePointerDown);
@@ -51,178 +98,252 @@ export default function Navbar() {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isDefsMenuOpen]);
+  }, [isDefsMenuOpen, isUserMenuOpen]);
 
-  // Sayfa değişince menüyü kapat
+  // Sayfa değişince menüleri kapat
   useEffect(() => {
     setIsDefsMenuOpen(false);
+    setIsUserMenuOpen(false);
   }, [location.pathname]);
 
+  const desktopLinkClass = (active: boolean) =>
+    `relative inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition-all duration-200 ease-smooth ${
+      active
+        ? 'bg-brand-50 text-brand-700 shadow-[inset_0_0_0_1px_theme(colors.brand.200)]'
+        : 'text-ink-500 hover:bg-ink-100/70 hover:text-ink-900'
+    }`;
+
+  const mobileLinkClass = (active: boolean) =>
+    `flex items-center gap-3 rounded-xl px-3 py-2.5 text-[15px] font-semibold transition-colors ${
+      active ? 'bg-brand-50 text-brand-700' : 'text-ink-600 hover:bg-ink-100 hover:text-ink-900'
+    }`;
+
   return (
-    <nav className="bg-white shadow-sm border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-16">
-          <div className="flex">
-            <div className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold text-indigo-600">FURNİGO</span>
-            </div>
-            <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  className={`inline-flex items-center px-1 pt-1 border-b-2 text-sm font-medium ${
-                    isActive(item.path)
-                      ? 'border-indigo-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
-                >
-                  {item.label}
-                </Link>
-              ))}
+    <nav
+      className={`sticky top-0 z-40 border-b transition-all duration-300 glass ${
+        isScrolled ? 'border-ink-200/80 shadow-soft' : 'border-ink-200/50'
+      }`}
+    >
+      <div className="w-full px-4 sm:px-6 lg:px-8">
+        <div className="flex h-[68px] items-center justify-between gap-4">
+          {/* Marka */}
+          <Link to="/" className="shrink-0 rounded-xl transition-opacity hover:opacity-90">
+            <Logo markClassName="h-9 w-9" />
+          </Link>
+
+          {/* Masaüstü gezinme */}
+          <div className="hidden flex-1 items-center justify-center lg:flex">
+            <div className="flex items-center gap-1 rounded-2xl border border-ink-200/70 bg-white/60 p-1 shadow-card">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const active = isActive(item.path);
+                return (
+                  <Link key={item.path} to={item.path} className={desktopLinkClass(active)}>
+                    <Icon className={`h-[18px] w-[18px] ${active ? 'text-brand-600' : 'text-ink-400'}`} />
+                    {item.label}
+                  </Link>
+                );
+              })}
 
               {/* Tanımlamalar açılır menüsü */}
-              <div className="relative flex items-center" ref={defsMenuRef}>
+              <div className="relative" ref={defsMenuRef}>
                 <button
                   type="button"
                   onClick={() => setIsDefsMenuOpen((open) => !open)}
                   aria-expanded={isDefsMenuOpen}
                   aria-haspopup="true"
-                  className={`inline-flex items-center gap-1 px-1 pt-1 h-full border-b-2 text-sm font-medium ${
-                    isDefinitionsActive
-                      ? 'border-indigo-500 text-gray-900'
-                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-                  }`}
+                  className={desktopLinkClass(isDefinitionsActive || isDefsMenuOpen)}
                 >
+                  <IconSliders
+                    className={`h-[18px] w-[18px] ${
+                      isDefinitionsActive ? 'text-brand-600' : 'text-ink-400'
+                    }`}
+                  />
                   Tanımlamalar
-                  <svg
-                    className={`h-4 w-4 transition-transform ${isDefsMenuOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    aria-hidden="true"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
+                  <IconChevronDown
+                    className={`h-4 w-4 transition-transform duration-200 ${
+                      isDefsMenuOpen ? 'rotate-180' : ''
+                    }`}
+                  />
                 </button>
 
                 {isDefsMenuOpen && (
-                  <div className="absolute left-0 top-full z-50 mt-1 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 py-1">
-                    {definitionItems.map((item) => (
-                      <Link
-                        key={item.path}
-                        to={item.path}
-                        onClick={() => setIsDefsMenuOpen(false)}
-                        className={`block px-4 py-2 text-sm ${
-                          isActive(item.path)
-                            ? 'bg-indigo-50 text-indigo-700 font-medium'
-                            : 'text-gray-700 hover:bg-gray-50'
-                        }`}
-                      >
-                        {item.label}
-                      </Link>
-                    ))}
+                  <div className="absolute left-0 top-full z-50 mt-2 w-72 origin-top-left animate-scale-in rounded-2xl border border-ink-200/70 bg-white p-1.5 shadow-lifted">
+                    {definitionItems.map((item) => {
+                      const Icon = item.icon;
+                      const active = isActive(item.path);
+                      return (
+                        <Link
+                          key={item.path}
+                          to={item.path}
+                          onClick={() => setIsDefsMenuOpen(false)}
+                          className={`flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors ${
+                            active ? 'bg-brand-50' : 'hover:bg-ink-50'
+                          }`}
+                        >
+                          <span
+                            className={`mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
+                              active
+                                ? 'bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow'
+                                : 'bg-ink-100 text-ink-500'
+                            }`}
+                          >
+                            <Icon className="h-[18px] w-[18px]" />
+                          </span>
+                          <span className="min-w-0">
+                            <span
+                              className={`block text-sm font-semibold ${
+                                active ? 'text-brand-700' : 'text-ink-800'
+                              }`}
+                            >
+                              {item.label}
+                            </span>
+                            <span className="mt-0.5 block text-xs leading-snug text-ink-500">
+                              {item.desc}
+                            </span>
+                          </span>
+                        </Link>
+                      );
+                    })}
                   </div>
                 )}
               </div>
             </div>
           </div>
 
-          {/* Desktop user info and logout */}
-          <div className="hidden sm:flex items-center">
-            <span className="text-sm text-gray-600 mr-4">{user?.username}</span>
-            <button
-              onClick={logout}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            >
-              Çıkış
-            </button>
+          {/* Kullanıcı menüsü (masaüstü) */}
+          <div className="hidden shrink-0 items-center gap-2 lg:flex" ref={userMenuRef}>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsUserMenuOpen((open) => !open)}
+                aria-expanded={isUserMenuOpen}
+                aria-haspopup="true"
+                className={`flex items-center gap-2.5 rounded-2xl border py-1.5 pl-1.5 pr-3 transition-all duration-200 ${
+                  isUserMenuOpen
+                    ? 'border-brand-200 bg-brand-50'
+                    : 'border-ink-200/70 bg-white/70 hover:border-ink-300 hover:bg-white'
+                }`}
+              >
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-bold text-white shadow-glow">
+                  {initials}
+                </span>
+                <span className="max-w-[10rem] truncate text-sm font-semibold text-ink-700">
+                  {user?.username}
+                </span>
+                <IconChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-200 ${
+                    isUserMenuOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isUserMenuOpen && (
+                <div className="absolute right-0 top-full z-50 mt-2 w-60 origin-top-right animate-scale-in rounded-2xl border border-ink-200/70 bg-white p-1.5 shadow-lifted">
+                  <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
+                      {initials}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink-900">
+                        {user?.username}
+                      </span>
+                      <span className="block text-xs text-ink-500">Oturum açık</span>
+                    </span>
+                  </div>
+                  <div className="my-1.5 h-px bg-ink-200/70" />
+                  <button
+                    onClick={logout}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-rose-600 transition-colors hover:bg-rose-50"
+                  >
+                    <IconLogout className="h-[18px] w-[18px]" />
+                    Çıkış Yap
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* Mobile hamburger button */}
-          <div className="flex items-center sm:hidden">
+          {/* Mobil menü düğmesi */}
+          <div className="flex items-center gap-2 lg:hidden">
+            <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-[13px] font-bold text-white shadow-glow">
+              {initials}
+            </span>
             <button
               onClick={toggleMobileMenu}
-              className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500"
+              className="btn-icon h-10 w-10 border border-ink-200/70 bg-white/70"
               aria-label="Ana menüyü aç"
+              aria-expanded={isMobileMenuOpen}
             >
-              {isMobileMenuOpen ? (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              ) : (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
+              {isMobileMenuOpen ? <IconClose /> : <IconMenu />}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Mobile menu */}
-      <div className={`sm:hidden ${isMobileMenuOpen ? 'block' : 'hidden'} border-t border-gray-200`}>
-        <div className="pt-2 pb-3 space-y-1">
-          {navItems.map((item) => (
-            <Link
-              key={item.path}
-              to={item.path}
-              onClick={closeMobileMenu}
-              className={`block pl-3 pr-4 py-2 border-l-4 text-base font-medium ${
-                isActive(item.path)
-                  ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                  : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-
-          {/* Mobilde Tanımlamalar başlık + alt bağlantılar olarak düz görünür */}
-          <div className="pt-2 mt-2 border-t border-gray-100">
-            <div className="px-4 py-1 text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Tanımlamalar
-            </div>
-            {definitionItems.map((item) => (
+      {/* Mobil menü */}
+      <div
+        className={`overflow-hidden border-t border-ink-200/70 bg-white/95 backdrop-blur transition-[max-height,opacity] duration-300 ease-smooth lg:hidden ${
+          isMobileMenuOpen ? 'max-h-[36rem] opacity-100' : 'max-h-0 opacity-0'
+        }`}
+      >
+        <div className="space-y-1 px-4 pb-4 pt-3 sm:px-6">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.path);
+            return (
               <Link
                 key={item.path}
                 to={item.path}
                 onClick={closeMobileMenu}
-                className={`block pl-6 pr-4 py-2 border-l-4 text-base font-medium ${
-                  isActive(item.path)
-                    ? 'bg-indigo-50 border-indigo-500 text-indigo-700'
-                    : 'border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700'
-                }`}
+                className={mobileLinkClass(active)}
               >
+                <Icon className={`h-5 w-5 ${active ? 'text-brand-600' : 'text-ink-400'}`} />
                 {item.label}
               </Link>
-            ))}
-          </div>
-        </div>
+            );
+          })}
 
-        {/* Mobile user info and logout */}
-        <div className="pt-4 pb-3 border-t border-gray-200">
-          <div className="flex items-center px-4">
-            <div className="flex-shrink-0">
-              <div className="h-10 w-10 rounded-full bg-indigo-100 flex items-center justify-center">
-                <span className="text-indigo-600 font-medium text-sm">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </span>
+          <div className="pt-3">
+            <div className="px-3 pb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-ink-400">
+              Tanımlamalar
+            </div>
+            {definitionItems.map((item) => {
+              const Icon = item.icon;
+              const active = isActive(item.path);
+              return (
+                <Link
+                  key={item.path}
+                  to={item.path}
+                  onClick={closeMobileMenu}
+                  className={mobileLinkClass(active)}
+                >
+                  <Icon className={`h-5 w-5 ${active ? 'text-brand-600' : 'text-ink-400'}`} />
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-2xl border border-ink-200/70 bg-ink-50/70 px-3 py-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 text-sm font-bold text-white">
+                {initials}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-ink-900">{user?.username}</div>
+                <div className="text-xs text-ink-500">Oturum açık</div>
               </div>
             </div>
-            <div className="ml-3">
-              <div className="text-base font-medium text-gray-800">{user?.username}</div>
-            </div>
-          </div>
-          <div className="mt-3 px-2">
             <button
               onClick={() => {
                 closeMobileMenu();
                 logout();
               }}
-              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:text-gray-700 hover:bg-gray-100"
+              className="btn btn-sm btn-secondary text-rose-600 hover:bg-rose-50 hover:text-rose-700"
             >
-              Çıkış Yap
+              <IconLogout className="h-4 w-4" />
+              Çıkış
             </button>
           </div>
         </div>

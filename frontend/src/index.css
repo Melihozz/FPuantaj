@@ -2,19 +2,473 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
-  margin: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+/* ==========================================================================
+   FURNIGO • Tasarım Sistemi
+   Token'lar, temel katman düzeltmeleri ve yeniden kullanılabilir bileşenler.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    --brand-500: 111 102 244;
+    --brand-600: 91 75 232;
+    --brand-700: 74 57 199;
+
+    /* Uygulama zemini: yumuşak ışık huzmeleri */
+    --app-bg:
+      radial-gradient(1200px 620px at 12% -8%, rgb(111 102 244 / 0.10), transparent 62%),
+      radial-gradient(1000px 520px at 96% 0%, rgb(249 143 11 / 0.08), transparent 58%),
+      radial-gradient(900px 700px at 50% 120%, rgb(91 75 232 / 0.06), transparent 60%);
+  }
+
+  * {
+    border-color: theme('colors.ink.200');
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    margin: 0;
+    background-color: theme('colors.canvas');
+    color: theme('colors.ink.800');
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: theme('fontFamily.display');
+    letter-spacing: -0.018em;
+    color: theme('colors.ink.900');
+  }
+
+  /* Para/gün/saat sütunları hizalı dursun */
+  table {
+    font-variant-numeric: tabular-nums;
+  }
+
+  ::selection {
+    background: rgb(var(--brand-600) / 0.16);
+    color: theme('colors.brand.900');
+  }
+
+  /* Klavye ile gezinirken belirgin, fare ile sessiz odak halkası */
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand-600) / 0.55);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  /* İnce, modern kaydırma çubuğu */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: theme('colors.ink.300') transparent;
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: theme('colors.ink.300');
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: theme('colors.ink.400');
+  }
+
+  /* Sayfalarda kalan "çıplak" form elemanları da modern görünsün.
+     Utilities katmanı sonra geldiği için JSX'teki sınıflar bunu ezebilir. */
+  input:not([type='checkbox']):not([type='radio']):not([type='range']),
+  select,
+  textarea {
+    border-radius: theme('borderRadius.xl');
+    border-width: 1px;
+    border-color: theme('colors.ink.200');
+    background-color: #fff;
+    color: theme('colors.ink.900');
+    transition: border-color .18s ease, box-shadow .18s ease, background-color .18s ease;
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):hover,
+  select:hover,
+  textarea:hover {
+    border-color: theme('colors.ink.300');
+  }
+
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):focus,
+  select:focus,
+  textarea:focus {
+    outline: none;
+    border-color: theme('colors.brand.500');
+    box-shadow: 0 0 0 4px rgb(var(--brand-500) / 0.14);
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: theme('colors.ink.400');
+  }
+
+  input[type='checkbox'] {
+    accent-color: theme('colors.brand.600');
+    border-radius: 5px;
+  }
+
+  input[type='date'],
+  input[type='number'] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  button {
+    transition: background-color .18s ease, color .18s ease, box-shadow .18s ease,
+      transform .18s ease, opacity .18s ease, border-color .18s ease;
+  }
 }
 
-/* Toast animation */
+@layer components {
+  /* ---------------------------------------------------------------- Yüzeyler */
+  .card {
+    @apply bg-white rounded-2xl border border-ink-200/70 shadow-card;
+  }
+
+  .card-hover {
+    @apply transition-all duration-300 ease-smooth hover:shadow-soft hover:-translate-y-0.5;
+  }
+
+  .card-header {
+    @apply px-5 sm:px-6 py-4 border-b border-ink-200/70 flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .card-body {
+    @apply px-5 sm:px-6 py-5;
+  }
+
+  .card-footer {
+    @apply px-5 sm:px-6 py-3 border-t border-ink-200/70 bg-ink-50/60 text-xs text-ink-500 rounded-b-2xl;
+  }
+
+  .card-title {
+    @apply font-display text-base font-semibold tracking-tight text-ink-900;
+  }
+
+  .card-sub {
+    @apply text-sm text-ink-500;
+  }
+
+  /* -------------------------------------------------------- Sayfa başlıkları */
+  .page-header {
+    @apply relative overflow-hidden rounded-2xl border border-ink-200/70 bg-white shadow-card
+           px-5 sm:px-6 py-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4;
+    /* backwards: animasyon bittiğinde transform kalmaz, yığın bağlamı sızdırmaz */
+    animation: fade-up 0.42s cubic-bezier(0.21, 1.02, 0.73, 1) backwards;
+  }
+
+  /* Başlığın üstünde ince marka şeridi */
+  .page-header::before {
+    content: '';
+    @apply absolute inset-x-0 top-0 h-[3px];
+    background-image: linear-gradient(
+      90deg,
+      theme('colors.brand.600'),
+      theme('colors.brand.400') 45%,
+      theme('colors.accent.400')
+    );
+  }
+
+  .page-title {
+    @apply font-display text-xl sm:text-[1.375rem] font-bold tracking-tight text-ink-900 flex flex-wrap items-center gap-2;
+  }
+
+  .page-desc {
+    @apply mt-1 text-sm text-ink-500 max-w-2xl;
+  }
+
+  /* Başlıktaki ikon rozeti */
+  .title-icon {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl
+           bg-gradient-to-br from-brand-500 to-brand-700 text-white shadow-glow;
+  }
+
+  /* Grup/bölüm başlığı (kategori blokları) */
+  .section-head {
+    @apply px-5 sm:px-6 py-4 border-b border-ink-200/70 flex items-center gap-3
+           bg-gradient-to-r from-brand-50/80 via-white to-white;
+  }
+
+  .section-bar {
+    @apply h-7 w-1.5 shrink-0 rounded-full bg-gradient-to-b from-brand-400 to-brand-700;
+  }
+
+  .section-title {
+    @apply font-display text-base sm:text-lg font-semibold tracking-tight text-ink-900 flex flex-wrap items-center gap-2;
+  }
+
+  /* ---------------------------------------------------------------- Butonlar */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl
+           px-4 py-2.5 text-sm font-semibold leading-none
+           transition-all duration-200 ease-smooth select-none
+           active:scale-[.97] disabled:pointer-events-none disabled:opacity-50;
+  }
+
+  .btn-sm {
+    @apply px-3 py-2 text-[13px] rounded-lg gap-1.5;
+  }
+
+  .btn-lg {
+    @apply px-5 py-3 text-[15px] rounded-xl;
+  }
+
+  .btn-primary {
+    @apply text-white shadow-glow
+           bg-gradient-to-b from-brand-500 to-brand-600
+           hover:from-brand-400 hover:to-brand-600 hover:shadow-glow-lg
+           focus-visible:outline-brand-700;
+  }
+
+  .btn-secondary {
+    @apply text-ink-700 bg-white border border-ink-200 shadow-card
+           hover:bg-ink-50 hover:border-ink-300 hover:text-ink-900;
+  }
+
+  .btn-ghost {
+    @apply text-ink-600 hover:bg-ink-100 hover:text-ink-900;
+  }
+
+  .btn-success {
+    @apply text-white shadow-[0_8px_20px_-8px_rgb(5_150_105/.55)]
+           bg-gradient-to-b from-emerald-500 to-emerald-600
+           hover:from-emerald-400 hover:to-emerald-600;
+  }
+
+  .btn-danger {
+    @apply text-white shadow-[0_8px_20px_-8px_rgb(225_29_72/.55)]
+           bg-gradient-to-b from-rose-500 to-rose-600
+           hover:from-rose-400 hover:to-rose-600;
+  }
+
+  .btn-accent {
+    @apply text-white shadow-[0_8px_20px_-8px_rgb(221_109_6/.55)]
+           bg-gradient-to-b from-accent-400 to-accent-600
+           hover:from-accent-300 hover:to-accent-600;
+  }
+
+  .btn-icon {
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg text-ink-500
+           hover:bg-ink-100 hover:text-ink-800 transition-colors;
+  }
+
+  /* Tablo içi metin aksiyonları */
+  .link-action {
+    @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-brand-600
+           transition-colors hover:bg-brand-50 hover:text-brand-800 disabled:opacity-50;
+  }
+
+  .link-danger {
+    @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-semibold text-rose-600
+           transition-colors hover:bg-rose-50 hover:text-rose-800
+           disabled:text-ink-300 disabled:hover:bg-transparent disabled:cursor-not-allowed;
+  }
+
+  .link-muted {
+    @apply inline-flex items-center gap-1 rounded-lg px-2 py-1 text-sm font-medium text-ink-500
+           transition-colors hover:bg-ink-100 hover:text-ink-800 disabled:opacity-50;
+  }
+
+  /* ------------------------------------------------------------ Form alanları */
+  .field {
+    @apply block w-full rounded-xl border border-ink-200 bg-white
+           px-3.5 py-2.5 text-sm text-ink-900 shadow-[0_1px_2px_rgb(17_20_29/.04)]
+           transition-all duration-200
+           placeholder:text-ink-400
+           hover:border-ink-300
+           focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/15
+           disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400;
+  }
+
+  .field-sm {
+    @apply px-3 py-2 text-[13px] rounded-lg;
+  }
+
+  .field-invalid {
+    @apply border-rose-400 focus:border-rose-500 focus:ring-rose-500/15;
+  }
+
+  /* Yerel select okunu markaya uygun ok ile değiştir */
+  select.field {
+    @apply appearance-none bg-no-repeat pr-10;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236F7997' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.75rem center;
+    background-size: 1rem 1rem;
+  }
+
+  /* Yoğun tablolarda (toplu ekleme modalleri) kullanılan kompakt alan */
+  .field-cell {
+    @apply w-full rounded-lg border border-ink-200 bg-white px-2 py-1.5 text-[13px] text-ink-900
+           transition-all duration-150 placeholder:text-ink-400
+           hover:border-ink-300
+           focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20
+           disabled:cursor-not-allowed disabled:bg-ink-50 disabled:text-ink-400;
+  }
+
+  select.field-cell {
+    @apply appearance-none bg-no-repeat pr-7;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236F7997' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.4rem center;
+    background-size: 0.85rem 0.85rem;
+  }
+
+  .form-label {
+    @apply block text-[13px] font-semibold text-ink-700 mb-1.5;
+  }
+
+  .form-hint {
+    @apply mt-1.5 text-xs text-ink-500;
+  }
+
+  .form-error {
+    @apply mt-1.5 text-xs font-medium text-rose-600;
+  }
+
+  /* ---------------------------------------------------------------- Rozetler */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5
+           text-xs font-semibold leading-5 ring-1 ring-inset;
+  }
+
+  .badge-neutral  { @apply bg-ink-100 text-ink-700 ring-ink-200; }
+  .badge-brand    { @apply bg-brand-50 text-brand-700 ring-brand-200; }
+  .badge-success  { @apply bg-emerald-50 text-emerald-700 ring-emerald-200; }
+  .badge-danger   { @apply bg-rose-50 text-rose-700 ring-rose-200; }
+  .badge-warning  { @apply bg-amber-50 text-amber-700 ring-amber-200; }
+  .badge-info     { @apply bg-sky-50 text-sky-700 ring-sky-200; }
+
+  /* ----------------------------------------------------------------- Tablolar */
+  .th {
+    @apply px-6 py-3.5 text-left text-[11px] font-bold uppercase tracking-[0.07em] text-ink-500;
+  }
+
+  .th-right  { @apply px-6 py-3.5 text-right  text-[11px] font-bold uppercase tracking-[0.07em] text-ink-500; }
+  .th-center { @apply px-6 py-3.5 text-center text-[11px] font-bold uppercase tracking-[0.07em] text-ink-500; }
+
+  .thead {
+    @apply bg-ink-50/80 backdrop-blur supports-[backdrop-filter]:bg-ink-50/70;
+  }
+
+  .row {
+    @apply transition-colors duration-150 hover:bg-brand-50/40;
+  }
+
+  /* -------------------------------------------------------- Uyarı / bilgi kutuları */
+  .alert {
+    @apply flex items-start gap-3 rounded-xl border px-4 py-3 text-sm;
+  }
+
+  .alert-danger {
+    @apply border-rose-200 bg-rose-50 text-rose-800;
+  }
+
+  .alert-warning {
+    @apply border-amber-200 bg-amber-50 text-amber-800;
+  }
+
+  .alert-info {
+    @apply border-brand-200 bg-brand-50 text-brand-800;
+  }
+
+  /* ------------------------------------------------------------------ Modallar */
+  .modal-backdrop {
+    @apply fixed inset-0 z-50 flex items-center justify-center p-4
+           bg-ink-950/50 backdrop-blur-sm animate-fade-in;
+  }
+
+  .modal-panel {
+    @apply w-full rounded-2xl border border-white/60 bg-white shadow-lifted
+           animate-scale-in overflow-hidden;
+  }
+
+  .modal-header {
+    @apply px-6 py-4 border-b border-ink-200/70 flex items-center justify-between gap-3;
+  }
+
+  .modal-title {
+    @apply font-display text-lg font-bold tracking-tight text-ink-900;
+  }
+
+  /* ------------------------------------------------------------------- Diğer */
+  .stat-tile {
+    @apply rounded-xl border border-ink-200/70 bg-white px-3.5 py-2.5 shadow-card
+           transition-all duration-200 hover:border-ink-300 hover:shadow-soft;
+  }
+
+  .stat-label {
+    @apply text-[11px] font-semibold uppercase tracking-wide text-ink-500;
+  }
+
+  .stat-value {
+    @apply mt-0.5 font-display text-base font-bold text-ink-900 tabular-nums;
+  }
+
+  .empty-state {
+    @apply flex flex-col items-center justify-center gap-3 px-6 py-16 text-center;
+  }
+
+  .divider-dots {
+    @apply flex-1 border-b border-dotted border-ink-300 translate-y-[-3px];
+  }
+
+  .spinner {
+    @apply inline-block rounded-full border-2 border-brand-500/25 border-t-brand-600 animate-spin;
+  }
+
+  .kbd {
+    @apply rounded-md border border-ink-200 bg-ink-50 px-1.5 py-0.5 font-mono text-[11px] text-ink-600;
+  }
+}
+
+@layer utilities {
+  .text-balance { text-wrap: balance; }
+
+  .app-backdrop {
+    background-image: var(--app-bg);
+  }
+
+  /* Cam efektli üst çubuk */
+  .glass {
+    background-color: rgb(255 255 255 / 0.78);
+    backdrop-filter: saturate(180%) blur(16px);
+    -webkit-backdrop-filter: saturate(180%) blur(16px);
+  }
+
+  .glass-dark {
+    background-color: rgb(17 20 29 / 0.55);
+    backdrop-filter: saturate(180%) blur(18px);
+    -webkit-backdrop-filter: saturate(180%) blur(18px);
+  }
+
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* --------------------------------------------------- Eski isimlerle uyumluluk */
+
+/* Toast animasyonu (ToastContext bu sınıfı kullanıyor) */
 @keyframes slide-in {
   from {
-    transform: translateX(100%);
+    transform: translateX(110%);
     opacity: 0;
   }
   to {
@@ -24,10 +478,10 @@ body {
 }
 
 .animate-slide-in {
-  animation: slide-in 0.3s ease-out;
+  animation: slide-in 0.32s cubic-bezier(0.21, 1.02, 0.73, 1) both;
 }
 
-/* Loading skeleton animation */
+/* Yükleniyor iskeleti */
 @keyframes shimmer {
   0% {
     background-position: -200% 0;
@@ -38,7 +492,23 @@ body {
 }
 
 .animate-shimmer {
-  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background: linear-gradient(
+    90deg,
+    theme('colors.ink.100') 25%,
+    theme('colors.ink.200') 50%,
+    theme('colors.ink.100') 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

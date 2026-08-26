@@ -3,6 +3,13 @@ import { useSearchParams } from 'react-router-dom';
 import { getAllEmployees, Employee, isApiError } from '../api/employee';
 import { addTrafficFinePayment, createTrafficFine, deleteTrafficFine, getTrafficFines, sumPayments, TrafficFine } from '../api/trafficFine';
 import { useToast } from '../context/ToastContext';
+import {
+  IconAlertTriangle,
+  IconInbox,
+  IconPlus,
+  IconTrash,
+  IconWallet,
+} from '../components/Icons';
 
 interface CreateFineModalProps {
   isOpen: boolean;
@@ -63,20 +70,20 @@ function CreateFineModal({ isOpen, onClose, employees, defaultEmployeeId, onSave
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Trafik Cezası Ekle</h2>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <div className="modal-header">
+          <h2 className="modal-title">Trafik Cezası Ekle</h2>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label htmlFor="tfc_employee" className="block text-sm font-medium text-gray-700 mb-1">Çalışan</label>
+            <label htmlFor="tfc_employee" className="form-label">Çalışan</label>
             <select
               id="tfc_employee"
               value={employeeId}
               onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
               disabled={isSaving}
             >
               <option value="">Seçiniz</option>
@@ -90,18 +97,18 @@ function CreateFineModal({ isOpen, onClose, employees, defaultEmployeeId, onSave
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="tfc_date" className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
+              <label htmlFor="tfc_date" className="form-label">Tarih</label>
               <input
                 id="tfc_date"
                 type="date"
                 value={fineDate}
                 onChange={(e) => setFineDate(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
                 disabled={isSaving}
               />
             </div>
             <div>
-              <label htmlFor="tfc_amount" className="block text-sm font-medium text-gray-700 mb-1">Ceza Tutarı (₺)</label>
+              <label htmlFor="tfc_amount" className="form-label">Ceza Tutarı (₺)</label>
               <input
                 id="tfc_amount"
                 type="number"
@@ -109,36 +116,36 @@ function CreateFineModal({ isOpen, onClose, employees, defaultEmployeeId, onSave
                 onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
                 min="0"
                 step="0.01"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
                 disabled={isSaving}
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="tfc_desc" className="block text-sm font-medium text-gray-700 mb-1">Açıklama (opsiyonel)</label>
+            <label htmlFor="tfc_desc" className="form-label">Açıklama (opsiyonel)</label>
             <input
               id="tfc_desc"
               type="text"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
               disabled={isSaving}
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-2">
+          <div className="-mx-6 -mb-6 mt-6 flex flex-wrap justify-end gap-3 border-t border-ink-200/70 bg-ink-50/60 px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="btn btn-secondary"
               disabled={isSaving}
             >
               İptal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              className="btn btn-primary"
               disabled={isSaving}
             >
               {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
@@ -208,29 +215,32 @@ function PaymentModal({ isOpen, onClose, fine, onSaved }: PaymentModalProps) {
   const remaining = Math.max(0, fine.amount - paid);
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-semibold text-gray-900">Ödeme Ekle</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            {fine.employee.fullName} · Kalan: <span className="font-medium">{remaining.toFixed(2)} ₺</span>
-          </p>
+    <div className="modal-backdrop">
+      <div className="modal-panel max-w-md">
+        <div className="modal-header">
+          <div>
+            <h2 className="modal-title">Ödeme Ekle</h2>
+            <p className="mt-1 text-sm text-ink-500">
+              {fine.employee.fullName} · Kalan:{' '}
+              <span className="font-semibold text-ink-800">{remaining.toFixed(2)} ₺</span>
+            </p>
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           <div>
-            <label htmlFor="tfp_date" className="block text-sm font-medium text-gray-700 mb-1">Tarih</label>
+            <label htmlFor="tfp_date" className="form-label">Tarih</label>
             <input
               id="tfp_date"
               type="date"
               value={paymentDate}
               onChange={(e) => setPaymentDate(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
               disabled={isSaving}
             />
           </div>
           <div>
-            <label htmlFor="tfp_amount" className="block text-sm font-medium text-gray-700 mb-1">Tutar (₺)</label>
+            <label htmlFor="tfp_amount" className="form-label">Tutar (₺)</label>
             <input
               id="tfp_amount"
               type="number"
@@ -238,23 +248,23 @@ function PaymentModal({ isOpen, onClose, fine, onSaved }: PaymentModalProps) {
               onChange={(e) => setAmount(parseFloat(e.target.value) || 0)}
               min="0"
               step="0.01"
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
               disabled={isSaving}
             />
           </div>
 
-          <div className="flex justify-end space-x-3 pt-2">
+          <div className="-mx-6 -mb-6 mt-6 flex flex-wrap justify-end gap-3 border-t border-ink-200/70 bg-ink-50/60 px-6 py-4">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+              className="btn btn-secondary"
               disabled={isSaving}
             >
               İptal
             </button>
             <button
               type="submit"
-              className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              className="btn btn-primary"
               disabled={isSaving}
             >
               {isSaving ? 'Kaydediliyor...' : 'Kaydet'}
@@ -372,31 +382,38 @@ export default function TrafficFinesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-start justify-between gap-4">
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconAlertTriangle className="h-[22px] w-[22px]" />
+          </span>
           <div>
-            <h1 className="text-xl font-semibold text-gray-900">Trafik Cezaları</h1>
-            <p className="text-sm text-gray-600 mt-1">
+            <h1 className="page-title">
+              Trafik Cezaları
+              <span className="badge badge-neutral">{fines.length} kayıt</span>
+            </h1>
+            <p className="page-desc">
               Her ceza ayrı kayıt olur. Ödeme ekleyerek kalan/ödendi durumunu takip edin.
             </p>
           </div>
-          <button
-            onClick={() => setCreateModalOpen(true)}
-            className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          >
-            Trafik Cezası Ekle
-          </button>
         </div>
 
-        <div className="p-4 sm:p-6 space-y-4">
+        <button onClick={() => setCreateModalOpen(true)} className="btn btn-primary">
+          <IconPlus className="h-[18px] w-[18px]" />
+          Trafik Cezası Ekle
+        </button>
+      </header>
+
+      <div className="card">
+        <div className="p-5 sm:p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label htmlFor="tf_employee" className="block text-sm font-medium text-gray-700 mb-1">Çalışan</label>
+              <label htmlFor="tf_employee" className="form-label">Çalışan</label>
               <select
                 id="tf_employee"
                 value={selectedEmployeeId}
                 onChange={(e) => setSelectedEmployeeId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="field"
               >
                 <option value="">(Tümü)</option>
                 {employees.map((e) => (
@@ -410,74 +427,81 @@ export default function TrafficFinesPage() {
         </div>
       </div>
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-base font-semibold text-gray-900">
-            Kayıtlar
-            <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-              {fines.length}
+      <div className="card overflow-hidden">
+        <div className="card-header">
+          <h2 className="card-title flex items-center gap-2.5">
+            <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-rose-50 text-rose-500 ring-1 ring-rose-100">
+              <IconAlertTriangle className="h-[18px] w-[18px]" />
             </span>
+            Kayıtlar
+            <span className="badge badge-neutral">{fines.length}</span>
           </h2>
         </div>
 
         {isLoading ? (
-          <div className="p-10 text-center text-gray-600">Yükleniyor...</div>
+          <div className="empty-state text-sm text-ink-500">Yükleniyor...</div>
         ) : fines.length === 0 ? (
-          <div className="p-10 text-center text-gray-500">Henüz kayıt yok.</div>
+          <div className="empty-state">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+              <IconInbox className="h-7 w-7" />
+            </span>
+            <p className="font-display text-base font-semibold text-ink-800">Henüz kayıt yok</p>
+            <p className="max-w-sm text-sm text-ink-500">
+              Yeni bir ceza eklemek için sağ üstteki butonu kullanın.
+            </p>
+          </div>
         ) : (
           <div>
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full divide-y divide-ink-200/60">
+                <thead className="thead">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th">
                       Çalışan
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th">
                       Ceza Tarihi
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th-right">
                       Ceza
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th-right">
                       Ödenen
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th-right">
                       Kalan
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="th-right">
                       İşlem
                     </th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-ink-200/60">
                   {fines.map((fine) => {
                     const paid = sumPayments(fine.payments);
                     const remaining = Math.max(0, fine.amount - paid);
                     const isPaid = remaining === 0 && fine.amount > 0;
                     return (
-                      <tr key={fine.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <tr key={fine.id} className="hover:bg-ink-50">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-900">
                           {fine.employee.fullName}
                           {fine.description ? (
-                            <div className="text-xs text-gray-500 mt-0.5">{fine.description}</div>
+                            <div className="text-xs text-ink-500 mt-0.5">{fine.description}</div>
                           ) : null}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-700">
                           {formatDate(fine.fineDate)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-700 text-right">
                           {formatCurrency(fine.amount)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 text-right">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-700 text-right">
                           {formatCurrency(paid)}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium text-right">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-ink-900 font-medium text-right">
                           <div className="flex items-center justify-end gap-2">
                             {isPaid ? (
-                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800">
-                                Ödendi
-                              </span>
+                              <span className="badge badge-success">Ödendi</span>
                             ) : null}
                             <span>{formatCurrency(remaining)}</span>
                           </div>
@@ -489,7 +513,7 @@ export default function TrafficFinesPage() {
                                 setPayingFine(fine);
                                 setPaymentModalOpen(true);
                               }}
-                              className={`text-indigo-600 hover:text-indigo-900 ${isPaid ? 'opacity-40 pointer-events-none' : ''}`}
+                              className={`link-action ${isPaid ? 'pointer-events-none opacity-40' : ''}`}
                             >
                               Ödeme Ekle
                             </button>
@@ -498,8 +522,9 @@ export default function TrafficFinesPage() {
                                 setDeletingFine(fine);
                                 setDeleteModalOpen(true);
                               }}
-                              className="text-red-600 hover:text-red-900"
+                              className="link-danger"
                             >
+                              <IconTrash className="h-4 w-4" />
                               Sil
                             </button>
                           </div>
@@ -511,19 +536,29 @@ export default function TrafficFinesPage() {
               </table>
             </div>
 
-            <div className="border-t border-gray-200 bg-slate-50 px-4 sm:px-6 py-4">
-              <h3 className="text-sm font-semibold text-slate-800 mb-2">Kullanıcı Toplamları (Kalan)</h3>
+            <div className="border-t border-ink-200/70 bg-ink-50/70 px-5 py-5 sm:px-6">
+              <h3 className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-500">
+                <IconWallet className="h-4 w-4" />
+                Kullanıcı Toplamları (Kalan)
+              </h3>
               <div className="space-y-1">
                 {totalsByEmployee.map((item) => (
-                  <div key={item.name} className="flex items-center justify-between text-sm">
-                    <span className="text-slate-700">{item.name}</span>
-                    <span className="font-semibold text-slate-900">{formatCurrency(item.totalRemaining)}</span>
+                  <div
+                    key={item.name}
+                    className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-white"
+                  >
+                    <span className="font-medium text-ink-700">{item.name}</span>
+                    <span className="font-semibold tabular-nums text-ink-900">
+                      {formatCurrency(item.totalRemaining)}
+                    </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-3 pt-3 border-t border-slate-200 flex items-center justify-between">
-                <span className="text-slate-900 font-semibold">Genel Kalan Toplamı</span>
-                <span className="font-bold text-slate-900">{formatCurrency(grandRemainingTotal)}</span>
+              <div className="mt-3 flex items-center justify-between rounded-xl border border-ink-200/70 bg-white px-3.5 py-3">
+                <span className="font-display font-bold text-ink-900">Genel Kalan Toplamı</span>
+                <span className="font-display text-lg font-bold tabular-nums text-ink-900">
+                  {formatCurrency(grandRemainingTotal)}
+                </span>
               </div>
             </div>
           </div>
@@ -555,29 +590,32 @@ export default function TrafficFinesPage() {
 
       {/* Delete confirm modal */}
       {deleteModalOpen && deletingFine ? (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
+        <div className="modal-backdrop">
+          <div className="modal-panel max-w-sm">
             <div className="p-6">
-              <h3 className="text-lg font-medium text-gray-900 text-center mb-2">Trafik Cezasını Sil</h3>
-              <p className="text-sm text-gray-600 text-center mb-6">
+              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-rose-50 text-rose-600 ring-1 ring-rose-100">
+                <IconTrash className="h-7 w-7" />
+              </div>
+              <h3 className="modal-title text-center">Trafik Cezasını Sil</h3>
+              <p className="mt-2 text-center text-sm text-ink-500">
                 <strong>{deletingFine.employee.fullName}</strong> için bu trafik cezasını silmek istediğinizden emin misiniz?
                 Bu cezanın ödemeleri de silinir.
               </p>
-              <div className="flex space-x-3">
+              <div className="mt-6 flex gap-3">
                 <button
                   onClick={() => {
                     if (isDeleting) return;
                     setDeleteModalOpen(false);
                     setDeletingFine(null);
                   }}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200"
+                  className="btn btn-secondary flex-1"
                   disabled={isDeleting}
                 >
                   İptal
                 </button>
                 <button
                   onClick={handleDeleteFine}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700 disabled:opacity-50"
+                  className="btn btn-danger flex-1"
                   disabled={isDeleting}
                 >
                   {isDeleting ? 'Siliniyor...' : 'Sil'}

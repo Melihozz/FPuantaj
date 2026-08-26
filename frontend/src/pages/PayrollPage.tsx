@@ -14,6 +14,19 @@ import { useCategories } from '../context/CategoryContext';
 import { getPayrollConfig, DEFAULT_PAYROLL_CONFIG, PayrollConfig } from '../api/config';
 import EditableCell from '../components/EditableCell';
 import { useToast } from '../context/ToastContext';
+import { PanelLoader } from '../components/Loaders';
+import {
+  IconAlertTriangle,
+  IconCalendar,
+  IconDownload,
+  IconDrag,
+  IconGrid,
+  IconInbox,
+  IconLayers,
+  IconTrendUp,
+  IconUsers,
+  IconWallet,
+} from '../components/Icons';
 
 type EditableField = 'daysWorked' | 'advance' | 'officialAdvance' | 'overtime50' | 'overtime100';
 
@@ -593,46 +606,129 @@ export default function PayrollPage() {
     }
   };
 
-  if (isLoading) return <div className="bg-white shadow rounded-lg p-6 text-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div></div>;
+  if (isLoading) return <PanelLoader label="Puantaj tablosu hazırlanıyor..." />;
 
   return (
     <div className="space-y-6">
-      <div className="bg-white shadow rounded-lg px-6 py-4 flex items-center justify-between">
-        <h1 className="text-xl font-semibold flex items-center gap-2">
-          Puantaj Tablosu
-          <span className="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
-            {entries.length} çalışan
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconGrid className="h-[22px] w-[22px]" />
           </span>
-        </h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-600">Dönem:</span>
-          <select aria-label="Ay seçimi" value={selectedMonth} onChange={e => setSelectedMonth(parseInt(e.target.value))} className="px-3 py-2 border rounded-md text-sm">
-            {Object.entries(MONTH_NAMES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          <select aria-label="Yıl seçimi" value={selectedYear} onChange={e => setSelectedYear(parseInt(e.target.value))} className="px-3 py-2 border rounded-md text-sm">
-            {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
-          </select>
-          <button
-            type="button"
-            onClick={handleExportExcel}
-            className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md"
-          >
+          <div>
+            <h1 className="page-title">
+              Puantaj Tablosu
+              <span className="badge badge-neutral">{entries.length} çalışan</span>
+            </h1>
+            <p className="page-desc">
+              {MONTH_NAMES[selectedMonth]} {selectedYear} dönemi · gün, avans ve mesai girişleri
+              anında hakedişe yansır.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="inline-flex items-center gap-2 rounded-xl border border-ink-200 bg-white p-1 shadow-card">
+            <span className="pl-2.5 text-ink-400">
+              <IconCalendar className="h-[18px] w-[18px]" />
+            </span>
+            <select
+              aria-label="Ay seçimi"
+              value={selectedMonth}
+              onChange={e => setSelectedMonth(parseInt(e.target.value))}
+              className="w-auto cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-1.5 pl-1 pr-6 text-sm font-semibold text-ink-800 focus:ring-0"
+            >
+              {Object.entries(MONTH_NAMES).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+            <span aria-hidden="true" className="h-5 w-px bg-ink-200" />
+            <select
+              aria-label="Yıl seçimi"
+              value={selectedYear}
+              onChange={e => setSelectedYear(parseInt(e.target.value))}
+              className="w-auto cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-1.5 pl-1 pr-6 text-sm font-semibold text-ink-800 focus:ring-0"
+            >
+              {yearOptions.map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+
+          <button type="button" onClick={handleExportExcel} className="btn btn-success">
+            <IconDownload className="h-[18px] w-[18px]" />
             Excel'e İndir
           </button>
         </div>
-      </div>
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">{error}</div>}
+      </header>
+
+      {/* Dönem özeti */}
+      {entries.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
+          {[
+            {
+              label: 'Çalışan',
+              value: String(entries.length),
+              icon: IconUsers,
+              tone: 'text-brand-600 bg-brand-50 ring-brand-100',
+            },
+            {
+              label: 'Aktif Bölüm',
+              value: String(displayAreas.filter((a) => (grouped[a]?.length ?? 0) > 0).length),
+              icon: IconLayers,
+              tone: 'text-sky-600 bg-sky-50 ring-sky-100',
+            },
+            {
+              label: 'Toplam Avans',
+              value: formatCurrency(advanceTotals.official + advanceTotals.cash),
+              icon: IconWallet,
+              tone: 'text-accent-600 bg-accent-50 ring-accent-100',
+            },
+            {
+              label: 'Genel Toplam',
+              value: formatCurrency(grandTotal),
+              icon: IconTrendUp,
+              tone: 'text-emerald-600 bg-emerald-50 ring-emerald-100',
+            },
+          ].map(({ label, value, icon: Icon, tone }) => (
+            <div key={label} className="card card-hover flex items-center gap-3.5 px-4 py-4">
+              <span className={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ring-1 ${tone}`}>
+                <Icon className="h-5 w-5" />
+              </span>
+              <div className="min-w-0">
+                <div className="stat-label">{label}</div>
+                <div className="truncate font-display text-lg font-bold tracking-tight text-ink-900 tabular-nums">
+                  {value}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && (
+        <div className="alert alert-danger">
+          <IconAlertTriangle className="h-5 w-5 shrink-0 text-rose-500" />
+          <span className="font-medium">{error}</span>
+        </div>
+      )}
       {entries.length === 0 ? (
-        <div className="bg-white shadow rounded-lg p-12 text-center text-gray-500">Bu dönem için çalışan bulunmuyor.</div>
+        <div className="card empty-state">
+          <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+            <IconInbox className="h-7 w-7" />
+          </span>
+          <p className="font-display text-base font-semibold text-ink-800">
+            Bu dönem için çalışan bulunmuyor
+          </p>
+          <p className="max-w-sm text-sm text-ink-500">
+            Farklı bir dönem seçin veya Tanımlamalar &gt; Çalışanlar sayfasından yeni kayıt ekleyin.
+          </p>
+        </div>
       ) : (
         <>
           {displayAreas.map(area => {
             const areaEntries = getSortedAreaEntries(area);
             if (areaEntries.length === 0) return null;
             return (
-              <div key={area} className="bg-white shadow rounded-lg overflow-hidden">
+              <div key={area} className="card overflow-hidden">
                 <div
-                  className="px-6 py-4 bg-gradient-to-r from-indigo-50 via-white to-slate-50 border-b border-slate-200 flex items-center gap-3 cursor-move"
+                  className="section-head group cursor-move"
                   draggable
                   onDragStart={() => {
                     // Don't start group drag while a row drag is active
@@ -647,38 +743,44 @@ export default function PayrollPage() {
                   onDrop={() => handleGroupDrop(area)}
                   title="Bölümü sürükleyerek sırasını değiştir"
                 >
-                  <div className="h-6 w-1.5 rounded-full bg-indigo-600" />
-                  <h2 className="text-lg font-semibold tracking-tight text-slate-900">
+                  <div className="section-bar" />
+                  <h2 className="section-title">
                     {labelOf(area)} Çalışanları
-                    <span className="ml-2 inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-sm font-medium text-slate-700 ring-1 ring-slate-200">
+                    <span className="badge badge-neutral ml-2">
                       {areaEntries.length} kişi
                     </span>
                   </h2>
+                  <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-medium text-ink-400 opacity-0 transition-opacity group-hover:opacity-100">
+                    <IconDrag className="h-4 w-4" />
+                    Sürükle
+                  </span>
                 </div>
-                <div className="overflow-x-hidden">
-                  <table className="w-full table-fixed">
-                    <thead className="bg-slate-100 border-b border-slate-300">
+                {/* Dar ekranda sütunlar üst üste binmesin: min genişliğin altında
+                    yatay kaydırma devreye girer, geniş ekranda görünüm aynı kalır. */}
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[1180px] table-fixed">
+                    <thead className="bg-ink-50 border-b border-ink-200">
                       <tr>
-                        <th className="px-2 py-2 text-left text-[11px] font-semibold text-slate-700 uppercase leading-tight">Çalışan</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight">Sigorta</th>
-                        <th className="px-2 py-2 text-left text-[11px] font-semibold text-slate-700 uppercase leading-tight">Giriş/Çıkış</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight">Maaş</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight">Ç.Günü</th>
-                        <th className="px-2 py-2 text-center text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">Çalıştığı</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">R.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">G.R.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">T.Günlük</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">G.R.Avans</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-blue-100">R.Avans</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Hak Edilen</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">%50</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">%100</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Resmi</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">G.Resmi</th>
-                        <th className="px-2 py-2 text-right text-[11px] font-semibold text-slate-700 uppercase leading-tight bg-green-100">Toplam</th>
+                        <th className="px-2 py-2 text-left text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight">Çalışan</th>
+                        <th className="px-2 py-2 text-center text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight">Sigorta</th>
+                        <th className="px-2 py-2 text-left text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight">Giriş/Çıkış</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight">Maaş</th>
+                        <th className="px-2 py-2 text-center text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight">Ç.Günü</th>
+                        <th className="px-2 py-2 text-center text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-brand-100/60">Çalıştığı</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">R.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">G.R.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">T.Günlük</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-brand-100/60">G.R.Avans</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-brand-100/60">R.Avans</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">Hak Edilen</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">%50</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">%100</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">Resmi</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">G.Resmi</th>
+                        <th className="px-2 py-2 text-right text-[10.5px] font-bold text-ink-500 uppercase tracking-[0.03em] leading-tight bg-emerald-100/60">Toplam</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-ink-200/60">
                       {areaEntries.map(entry => {
                       const earned = Math.max(0, entry.earnedSalary);
                       const officialDaily = FIXED_OFFICIAL_PAYMENT / OFFICIAL_WORKING_DAYS_BASE;
@@ -696,7 +798,7 @@ export default function PayrollPage() {
                       const cashRemaining = Math.max(0, cashBase - Math.min(cashBase, entry.advance));
                       const isPaid = officialRemaining === 0 && cashRemaining === 0;
 
-                      const paidRowClass = isPaid ? 'bg-amber-50' : '';
+                      const paidRowClass = isPaid ? 'bg-amber-50/80' : '';
 
                       return (
                       <tr
@@ -714,63 +816,63 @@ export default function PayrollPage() {
                           if (draggingArea === area) e.preventDefault();
                         }}
                         onDrop={() => handleRowDrop(area, entry.id)}
-                        className={`${savingId === entry.id ? 'opacity-50' : ''} ${draggingId === entry.id ? 'cursor-grabbing' : 'cursor-grab'} ${paidRowClass}`}
+                        className={`transition-colors duration-150 hover:bg-brand-50/40 ${savingId === entry.id ? 'opacity-50' : ''} ${draggingId === entry.id ? 'cursor-grabbing' : 'cursor-grab'} ${paidRowClass}`}
                         title="Satırı sürükleyerek sırayı değiştir"
                       >
-                        <td className="px-2 py-1.5 text-xs font-medium whitespace-normal break-words leading-snug" title={entry.employee.fullName}>
+                        <td className="px-2 py-1.5 text-xs font-semibold text-ink-900 whitespace-normal break-words leading-snug" title={entry.employee.fullName}>
                           {entry.employee.fullName}
                         </td>
-                        <td className="px-2 py-1.5 text-xs text-center"><span className={entry.employee.isInsured ? 'px-2 py-0.5 text-[11px] rounded-full bg-green-100 text-green-800 font-medium' : 'px-2 py-0.5 text-[11px] rounded-full bg-red-100 text-red-800 font-medium'}>{entry.employee.isInsured ? 'Evet' : 'Hayır'}</span></td>
+                        <td className="px-2 py-1.5 text-xs text-center"><span className={entry.employee.isInsured ? 'badge badge-success !px-2 !text-[10.5px]' : 'badge badge-danger !px-2 !text-[10.5px]'}>{entry.employee.isInsured ? 'Evet' : 'Hayır'}</span></td>
                         <td className="px-2 py-1.5 text-xs">
                           <div>{formatDate(entry.employee.startDate)}</div>
-                          {entry.employee.endDate && <div className="text-red-600 font-medium">{formatDate(entry.employee.endDate)}</div>}
+                          {entry.employee.endDate && <div className="text-rose-600 font-medium">{formatDate(entry.employee.endDate)}</div>}
                         </td>
                         <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap">{formatCurrency(entry.employee.salary)}</td>
-                        <td className="px-2 py-1.5 text-xs text-center text-gray-500">{entry.employee.workingDays}</td>
-                        <td className="px-2 py-1.5 bg-blue-50"><EditableCell value={entry.daysWorked} onChange={v => handleCellChange(entry.id, 'daysWorked', v)} min={0} max={31} isInteger disabled={savingId !== null} className="text-center" /></td>
+                        <td className="px-2 py-1.5 text-xs text-center text-ink-400">{entry.employee.workingDays}</td>
+                        <td className="px-2 py-1.5 bg-brand-50/60"><EditableCell value={entry.daysWorked} onChange={v => handleCellChange(entry.id, 'daysWorked', v)} min={0} max={31} isInteger disabled={savingId !== null} className="text-center" /></td>
                         {(() => {
                           const officialDailyRaw = FIXED_OFFICIAL_PAYMENT / OFFICIAL_WORKING_DAYS_BASE;
                           const officialDaily = entry.employee.isInsured ? Math.min(entry.dailyWage, officialDailyRaw) : 0;
                           const cashDaily = Math.max(0, entry.dailyWage - officialDaily);
                           return (
                             <>
-                              <td className={`px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50 ${entry.employee.isInsured ? 'text-gray-900' : 'text-gray-400'}`}>
+                              <td className={`px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50 ${entry.employee.isInsured ? 'text-ink-900' : 'text-ink-400'}`}>
                                 {formatCurrency(officialDaily)}
                               </td>
-                              <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">
+                              <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">
                                 {formatCurrency(cashDaily)}
                               </td>
                             </>
                           );
                         })()}
-                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.dailyWage)}</td>
-                        <td className="px-2 py-1.5 bg-blue-50"><EditableCell value={entry.advance} onChange={v => handleCellChange(entry.id, 'advance', v)} min={0} disabled={savingId !== null} className="text-right" prefix="₺" /></td>
-                        <td className={`px-2 py-1.5 ${entry.employee.isInsured ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">{formatCurrency(entry.dailyWage)}</td>
+                        <td className="px-2 py-1.5 bg-brand-50/60"><EditableCell value={entry.advance} onChange={v => handleCellChange(entry.id, 'advance', v)} min={0} disabled={savingId !== null} className="text-right" prefix="₺" /></td>
+                        <td className={`px-2 py-1.5 ${entry.employee.isInsured ? 'bg-brand-50/60' : 'bg-ink-50'}`}>
                           <EditableCell
                             value={entry.employee.isInsured ? entry.officialAdvance : 0}
                             onChange={v => handleCellChange(entry.id, 'officialAdvance', v)}
                             min={0}
                             disabled={!entry.employee.isInsured || savingId !== null}
-                            className={`text-right ${entry.employee.isInsured ? '' : 'text-gray-400'}`}
+                            className={`text-right ${entry.employee.isInsured ? '' : 'text-ink-400'}`}
                             prefix="₺"
                           />
                         </td>
-                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.earnedSalary)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.overtime50)}</td>
-                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">{formatCurrency(entry.overtime100)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">{formatCurrency(entry.earnedSalary)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">{formatCurrency(entry.overtime50)}</td>
+                        <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">{formatCurrency(entry.overtime100)}</td>
                         {(() => {
                           return (
                             <>
-                              <td className={`px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50 ${entry.employee.isInsured ? 'text-gray-900' : 'text-gray-400'}`}>
+                              <td className={`px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50 ${entry.employee.isInsured ? 'text-ink-900' : 'text-ink-400'}`}>
                                 {formatCurrency(officialRemaining)}
                               </td>
-                              <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-green-50">
+                              <td className="px-2 py-1.5 text-xs text-right whitespace-nowrap bg-emerald-50/50">
                                 {formatCurrency(cashRemaining)}
                               </td>
                             </>
                           );
                         })()}
-                        <td className="px-2 py-1.5 text-xs font-semibold text-right whitespace-nowrap bg-green-50"><span className={entry.totalReceivable >= 0 ? 'text-green-700' : 'text-red-700'}>{formatCurrency(entry.totalReceivable)}</span></td>
+                        <td className="px-2 py-1.5 text-xs font-semibold text-right whitespace-nowrap bg-emerald-50/50"><span className={entry.totalReceivable >= 0 ? 'text-emerald-700' : 'text-rose-700'}>{formatCurrency(entry.totalReceivable)}</span></td>
                       </tr>
                       );
                     })}
@@ -782,27 +884,32 @@ export default function PayrollPage() {
         })}
 
           {/* Totals summary */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200">
-              <h2 className="text-base font-semibold tracking-tight text-slate-900">Toplamlar</h2>
+          <div className="card overflow-hidden">
+            <div className="card-header">
+              <h2 className="card-title flex items-center gap-2.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600 ring-1 ring-emerald-100">
+                  <IconTrendUp className="h-[18px] w-[18px]" />
+                </span>
+                Toplamlar
+              </h2>
             </div>
             <div className="px-6 py-4">
               <div className="space-y-2">
                 {displayAreas
                   .filter((area) => (grouped[area]?.length ?? 0) > 0)
                   .map((area) => (
-                    <div key={area} className="flex items-center justify-between text-sm">
-                      <span className="text-slate-700">{labelOf(area)}</span>
-                      <span className={`font-semibold ${(totalsByArea[area] ?? 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <div key={area} className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-ink-50">
+                      <span className="font-medium text-ink-700">{labelOf(area)}</span>
+                      <span className={`font-semibold ${(totalsByArea[area] ?? 0) >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
                         {formatCurrency(totalsByArea[area] ?? 0)}
                       </span>
                     </div>
                   ))}
               </div>
 
-              <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-between">
-                <span className="text-slate-900 font-semibold">Genel Toplam</span>
-                <span className={`font-bold ${grandTotal >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+              <div className="mt-4 flex items-center justify-between rounded-xl border border-ink-200/70 bg-ink-50/70 px-3.5 py-3">
+                <span className="font-display font-bold text-ink-900">Genel Toplam</span>
+                <span className={`font-display text-lg font-bold tabular-nums ${grandTotal >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
                   {formatCurrency(grandTotal)}
                 </span>
               </div>
@@ -810,54 +917,60 @@ export default function PayrollPage() {
           </div>
 
           {/* Advances summary */}
-          <div className="bg-white shadow rounded-lg overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-slate-50 via-white to-slate-50 border-b border-slate-200 flex items-center justify-between">
-              <h2 className="text-base font-semibold tracking-tight text-slate-900">Avanslar</h2>
+          <div className="card overflow-hidden">
+            <div className="card-header">
+              <h2 className="card-title flex items-center gap-2.5">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-lg bg-accent-50 text-accent-600 ring-1 ring-accent-100">
+                  <IconWallet className="h-[18px] w-[18px]" />
+                </span>
+                Avanslar
+              </h2>
               <button
                 type="button"
                 onClick={handleExportAdvancesExcel}
                 disabled={advanceRows.length === 0}
-                className="px-3 py-2 text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 rounded-md disabled:opacity-50"
+                className="btn btn-sm btn-success"
               >
+                <IconDownload className="h-4 w-4" />
                 Excel'e İndir
               </button>
             </div>
             <div className="px-6 py-4">
               {advanceRows.length === 0 ? (
-                <div className="text-sm text-gray-500">Bu dönem için avans girilmemiş.</div>
+                <div className="text-sm text-ink-500">Bu dönem için avans girilmemiş.</div>
               ) : (
                 <>
                   {advanceRows.map((r, index) => (
                     <div
                       key={r.employeeId}
-                      className={`flex items-baseline gap-2 text-sm px-2 py-1.5 rounded ${
-                        index % 2 === 1 ? 'bg-slate-50' : ''
-                      } hover:bg-indigo-50`}
+                      className={`flex items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-sm transition-colors ${
+                        index % 2 === 1 ? 'bg-ink-50/70' : ''
+                      } hover:bg-brand-50/70`}
                     >
-                      <span className="text-slate-700 font-medium whitespace-nowrap">{r.name}</span>
-                      <span className="px-2 py-0.5 text-[11px] rounded-full bg-slate-100 text-slate-600 font-medium whitespace-nowrap ring-1 ring-slate-200">
+                      <span className="text-ink-700 font-medium whitespace-nowrap">{r.name}</span>
+                      <span className="badge badge-neutral whitespace-nowrap">
                         {r.area}
                       </span>
-                      <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
+                      <span aria-hidden="true" className="divider-dots" />
                       <span className="font-semibold whitespace-nowrap">
-                        <span className="text-blue-600">R.Avans: {formatCurrency(r.official)}</span>
+                        <span className="text-brand-600">R.Avans: {formatCurrency(r.official)}</span>
                         {' · '}
-                        <span className="text-orange-600">G.R.Avans: {formatCurrency(r.cash)}</span>
+                        <span className="text-accent-600">G.R.Avans: {formatCurrency(r.cash)}</span>
                         {' · '}
-                        <span className="text-green-700">Toplam: {formatCurrency(r.official + r.cash)}</span>
+                        <span className="text-emerald-700">Toplam: {formatCurrency(r.official + r.cash)}</span>
                       </span>
                     </div>
                   ))}
 
-                  <div className="mt-3 pt-3 border-t border-slate-200 flex items-baseline gap-2 px-2">
-                    <span className="text-slate-900 font-semibold whitespace-nowrap">Genel Toplam</span>
-                    <span aria-hidden="true" className="flex-1 border-b border-dotted border-slate-400 translate-y-[-3px]" />
+                  <div className="mt-3 flex items-baseline gap-2 rounded-xl border border-ink-200/70 bg-ink-50/70 px-3 py-2.5">
+                    <span className="font-display font-bold text-ink-900 whitespace-nowrap">Genel Toplam</span>
+                    <span aria-hidden="true" className="divider-dots" />
                     <span className="font-bold whitespace-nowrap">
-                      <span className="text-blue-600">R.Avans: {formatCurrency(advanceTotals.official)}</span>
+                      <span className="text-brand-600">R.Avans: {formatCurrency(advanceTotals.official)}</span>
                       {' · '}
-                      <span className="text-orange-600">G.R.Avans: {formatCurrency(advanceTotals.cash)}</span>
+                      <span className="text-accent-600">G.R.Avans: {formatCurrency(advanceTotals.cash)}</span>
                       {' · '}
-                      <span className="text-green-700">Toplam: {formatCurrency(advanceTotals.official + advanceTotals.cash)}</span>
+                      <span className="text-emerald-700">Toplam: {formatCurrency(advanceTotals.official + advanceTotals.cash)}</span>
                     </span>
                   </div>
                 </>

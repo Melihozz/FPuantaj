@@ -11,12 +11,20 @@ import {
   formatTime,
 } from '../api/log';
 import { getAllEmployees, Employee, isApiError } from '../api/employee';
+import { PanelLoader } from '../components/Loaders';
+import {
+  IconAlertTriangle,
+  IconChevronDown,
+  IconClose,
+  IconHistory,
+  IconInbox,
+} from '../components/Icons';
 
 // Action badge colors
 const ACTION_COLORS: Record<string, string> = {
-  CREATE: 'bg-green-100 text-green-800',
-  UPDATE: 'bg-blue-100 text-blue-800',
-  DELETE: 'bg-red-100 text-red-800',
+  CREATE: 'badge-success',
+  UPDATE: 'badge-info',
+  DELETE: 'badge-danger',
 };
 
 // Log entry component
@@ -36,28 +44,25 @@ function formatEntityNameForDisplay(log: AuditLog): string {
 
 function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
   return (
-    <div className="border border-gray-200 rounded-lg mb-3 overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-ink-200/70 bg-white shadow-card transition-all duration-200 hover:border-ink-300 hover:shadow-soft">
       <div
-        className="px-3 sm:px-4 py-3 bg-gray-50 cursor-pointer hover:bg-gray-100"
+        className="cursor-pointer px-3.5 py-3 transition-colors hover:bg-ink-50/70 sm:px-4"
         onClick={onToggle}
       >
         {/* Mobile layout */}
         <div className="sm:hidden">
           <div className="flex items-center justify-between mb-2">
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ACTION_COLORS[log.action]}`}>
+            <span className={`badge ${ACTION_COLORS[log.action]}`}>
               {ACTION_LABELS[log.action]}
             </span>
-            <svg
-              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <IconChevronDown
+              className={`h-5 w-5 text-ink-400 transition-transform duration-200 ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+            />
           </div>
-          <div className="text-sm font-medium text-gray-900 mb-1">{formatEntityNameForDisplay(log)}</div>
-          <div className="flex items-center justify-between text-xs text-gray-500">
+          <div className="text-sm font-medium text-ink-900 mb-1">{formatEntityNameForDisplay(log)}</div>
+          <div className="flex items-center justify-between text-xs text-ink-500">
             <span>{ENTITY_TYPE_LABELS[log.entityType]} • {log.userName}</span>
             <span>{formatDate(log.timestamp)}</span>
           </div>
@@ -66,60 +71,57 @@ function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
         {/* Desktop layout */}
         <div className="hidden sm:flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <span className={`px-2 py-1 text-xs font-semibold rounded-full ${ACTION_COLORS[log.action]}`}>
+            <span className={`badge ${ACTION_COLORS[log.action]}`}>
               {ACTION_LABELS[log.action]}
             </span>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-ink-500">
               {ENTITY_TYPE_LABELS[log.entityType]}
             </span>
-            <span className="text-sm font-medium text-gray-900">
+            <span className="text-sm font-medium text-ink-900">
               {formatEntityNameForDisplay(log)}
             </span>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-ink-500">
               {log.userName}
             </span>
-            <span className="text-sm text-gray-400">
+            <span className="text-sm text-ink-400">
               {formatDate(log.timestamp)} {formatTime(log.timestamp)}
             </span>
-            <svg
-              className={`w-5 h-5 text-gray-400 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
+            <IconChevronDown
+              className={`h-5 w-5 text-ink-400 transition-transform duration-200 ${
+                isExpanded ? 'rotate-180' : ''
+              }`}
+            />
           </div>
         </div>
       </div>
       
       {isExpanded && log.changes.length > 0 && (
-        <div className="px-3 sm:px-4 py-3 bg-white border-t border-gray-200">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Değişiklikler:</h4>
+        <div className="border-t border-ink-200/70 bg-ink-50/50 px-3.5 py-3.5 sm:px-4">
+          <h4 className="mb-2.5 text-[11px] font-bold uppercase tracking-[0.06em] text-ink-500">Değişiklikler</h4>
           <div className="space-y-2">
             {log.changes.map((change, index) => (
               <div key={index} className="flex flex-col sm:flex-row sm:items-start text-sm">
-                <span className="font-medium text-gray-600 sm:w-40 flex-shrink-0 mb-1 sm:mb-0">
+                <span className="font-medium text-ink-600 sm:w-40 flex-shrink-0 mb-1 sm:mb-0">
                   {getFieldLabel(change.field)}:
                 </span>
                 <div className="flex items-center space-x-2 ml-2 sm:ml-0">
                   {change.oldValue !== null && (
                     <>
-                      <span className="text-red-600 line-through break-all">
+                      <span className="text-rose-600 line-through break-all">
                         {formatChangeValue(change.oldValue)}
                       </span>
-                      <span className="text-gray-400">→</span>
+                      <span className="text-ink-400">→</span>
                     </>
                   )}
                   {change.newValue !== null && (
-                    <span className="text-green-600 break-all">
+                    <span className="text-emerald-600 break-all">
                       {formatChangeValue(change.newValue)}
                     </span>
                   )}
                   {change.oldValue !== null && change.newValue === null && (
-                    <span className="text-gray-400 italic">(silindi)</span>
+                    <span className="text-ink-400 italic">(silindi)</span>
                   )}
                 </div>
               </div>
@@ -129,8 +131,8 @@ function LogEntry({ log, isExpanded, onToggle }: LogEntryProps) {
       )}
       
       {isExpanded && log.changes.length === 0 && (
-        <div className="px-3 sm:px-4 py-3 bg-white border-t border-gray-200">
-          <p className="text-sm text-gray-500 italic">Değişiklik detayı bulunmuyor.</p>
+        <div className="border-t border-ink-200/70 bg-ink-50/50 px-3.5 py-3.5 sm:px-4">
+          <p className="text-sm italic text-ink-500">Değişiklik detayı bulunmuyor.</p>
         </div>
       )}
     </div>
@@ -209,11 +211,11 @@ function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) 
   }
 
   return (
-    <div className="flex items-center justify-center space-x-2 mt-6">
+    <div className="mt-7 flex flex-wrap items-center justify-center gap-1.5">
       <button
         onClick={() => onPageChange(currentPage - 1)}
         disabled={currentPage === 1}
-        className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+        className="inline-flex h-9 items-center rounded-lg border border-ink-200 bg-white px-3.5 text-sm font-semibold text-ink-600 transition-all hover:border-ink-300 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Önceki
       </button>
@@ -223,16 +225,16 @@ function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) 
           <button
             key={index}
             onClick={() => onPageChange(page)}
-            className={`px-3 py-1 text-sm border rounded-md ${
+            className={`inline-flex h-9 min-w-[2.25rem] items-center justify-center rounded-lg px-3 text-sm font-semibold transition-all ${
               page === currentPage
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'border-gray-300 hover:bg-gray-50'
+                ? 'bg-gradient-to-b from-brand-500 to-brand-600 text-white shadow-glow'
+                : 'border border-ink-200 bg-white text-ink-600 hover:border-ink-300 hover:bg-ink-50'
             }`}
           >
             {page}
           </button>
         ) : (
-          <span key={index} className="px-2 text-gray-400">
+          <span key={index} className="px-1.5 text-ink-400">
             {page}
           </span>
         )
@@ -241,7 +243,7 @@ function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps) 
       <button
         onClick={() => onPageChange(currentPage + 1)}
         disabled={currentPage === totalPages}
-        className="px-3 py-1 text-sm border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+        className="inline-flex h-9 items-center rounded-lg border border-ink-200 bg-white px-3.5 text-sm font-semibold text-ink-600 transition-all hover:border-ink-300 hover:bg-ink-50 disabled:cursor-not-allowed disabled:opacity-40"
       >
         Sonraki
       </button>
@@ -309,42 +311,49 @@ export default function LogPage() {
   };
 
   if (isLoading && !logsData) {
-    return (
-      <div className="bg-white shadow rounded-lg p-6">
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <span className="ml-3 text-gray-600">Yükleniyor...</span>
-        </div>
-      </div>
-    );
+    return <PanelLoader label="İşlem geçmişi yükleniyor..." />;
   }
 
   return (
-    <div className="bg-white shadow rounded-lg">
-      <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-        <h1 className="text-xl font-semibold text-gray-900">İşlem Geçmişi</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Sistemde yapılan tüm değişikliklerin kaydı
-        </p>
-      </div>
+    <div className="space-y-6">
+      <header className="page-header">
+        <div className="flex items-start gap-4">
+          <span className="title-icon">
+            <IconHistory className="h-[22px] w-[22px]" />
+          </span>
+          <div>
+            <h1 className="page-title">
+              İşlem Geçmişi
+              {logsData && <span className="badge badge-neutral">{logsData.total} kayıt</span>}
+            </h1>
+            <p className="page-desc">
+              Sistemde yapılan tüm değişiklikler; kim, ne zaman ve neyi değiştirdi.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="card">
 
       {error && (
-        <div className="mx-4 sm:mx-6 mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded">
-          {error}
+        <div className="alert alert-danger mx-5 mt-5 sm:mx-6">
+          <IconAlertTriangle className="h-5 w-5 shrink-0 text-rose-500" />
+          <span className="flex-1 font-medium">{error}</span>
           <button
             onClick={() => setError(null)}
-            className="float-right text-red-700 hover:text-red-900"
+            className="btn-icon h-7 w-7 shrink-0 text-rose-500 hover:bg-rose-100 hover:text-rose-700"
+            aria-label="Hatayı kapat"
           >
-            ×
+            <IconClose className="h-4 w-4" />
           </button>
         </div>
       )}
 
       <div className="p-4 sm:p-6">
         {/* Filters */}
-        <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="mb-5 grid grid-cols-1 gap-3 rounded-xl border border-ink-200/70 bg-ink-50/50 p-4 md:grid-cols-3">
           <div>
-            <label htmlFor="log_employee" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="log_employee" className="form-label">
               Çalışan
             </label>
             <select
@@ -355,7 +364,7 @@ export default function LogPage() {
                 setExpandedLogId(null);
                 setSelectedEmployeeName(e.target.value);
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
             >
               <option value="">Tümü</option>
               {employees.map((emp) => (
@@ -367,7 +376,7 @@ export default function LogPage() {
           </div>
 
           <div>
-            <label htmlFor="log_month" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="log_month" className="form-label">
               Ay
             </label>
             <select
@@ -379,7 +388,7 @@ export default function LogPage() {
                 setExpandedLogId(null);
                 setSelectedMonth(v === 'all' ? 'all' : parseInt(v, 10));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
             >
               <option value="all">Tümü</option>
               <option value="1">Ocak</option>
@@ -398,7 +407,7 @@ export default function LogPage() {
           </div>
 
           <div>
-            <label htmlFor="log_year" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="log_year" className="form-label">
               Yıl
             </label>
             <select
@@ -409,7 +418,7 @@ export default function LogPage() {
                 setExpandedLogId(null);
                 setSelectedYear(parseInt(e.target.value, 10));
               }}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="field"
             >
               {Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - 5 + i).map((y) => (
                 <option key={y} value={y}>
@@ -421,20 +430,30 @@ export default function LogPage() {
         </div>
 
         {logsData && logsData.logs.length === 0 ? (
-          <div className="text-center py-12 text-gray-500">
-            Henüz işlem geçmişi bulunmuyor.
+          <div className="empty-state">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-ink-100 text-ink-400">
+              <IconInbox className="h-7 w-7" />
+            </span>
+            <p className="font-display text-base font-semibold text-ink-800">
+              Henüz işlem geçmişi bulunmuyor
+            </p>
+            <p className="max-w-sm text-sm text-ink-500">
+              Seçili filtrelere uyan bir kayıt yok. Dönemi veya çalışanı değiştirmeyi deneyin.
+            </p>
           </div>
         ) : (
           <>
             {/* Summary info */}
             {logsData && (
-              <div className="mb-4 text-sm text-gray-500">
-                Toplam {logsData.total} kayıt, Sayfa {logsData.page} / {logsData.totalPages}
+              <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-400">
+                Toplam {logsData.total} kayıt
+                <span className="h-1 w-1 rounded-full bg-ink-300" />
+                Sayfa {logsData.page} / {logsData.totalPages}
               </div>
             )}
 
             {/* Log list */}
-            <div className="space-y-1">
+            <div className="space-y-2">
               {logsData?.logs.map((log) => (
                 <LogEntry
                   key={log.id}
@@ -455,6 +474,7 @@ export default function LogPage() {
             )}
           </>
         )}
+        </div>
       </div>
     </div>
   );

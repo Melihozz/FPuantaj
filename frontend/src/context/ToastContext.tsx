@@ -1,4 +1,10 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import {
+  IconAlertTriangle,
+  IconCheck,
+  IconClose,
+  IconInfo,
+} from '../components/Icons';
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info';
 
@@ -53,69 +59,80 @@ export function useToast() {
 function ToastContainer({ toasts, onRemove }: { toasts: Toast[]; onRemove: (id: string) => void }) {
   if (toasts.length === 0) return null;
 
-  const getToastStyles = (type: ToastType) => {
-    switch (type) {
-      case 'success':
-        return 'bg-green-50 border-green-200 text-green-800';
-      case 'error':
-        return 'bg-red-50 border-red-200 text-red-800';
-      case 'warning':
-        return 'bg-yellow-50 border-yellow-200 text-yellow-800';
-      case 'info':
-      default:
-        return 'bg-indigo-50 border-indigo-200 text-indigo-800';
-    }
+  const STYLES: Record<ToastType, { accent: string; chip: string; ring: string }> = {
+    success: {
+      accent: 'bg-emerald-500',
+      chip: 'bg-emerald-50 text-emerald-600 ring-emerald-100',
+      ring: 'ring-emerald-100',
+    },
+    error: {
+      accent: 'bg-rose-500',
+      chip: 'bg-rose-50 text-rose-600 ring-rose-100',
+      ring: 'ring-rose-100',
+    },
+    warning: {
+      accent: 'bg-amber-500',
+      chip: 'bg-amber-50 text-amber-600 ring-amber-100',
+      ring: 'ring-amber-100',
+    },
+    info: {
+      accent: 'bg-brand-500',
+      chip: 'bg-brand-50 text-brand-600 ring-brand-100',
+      ring: 'ring-brand-100',
+    },
   };
 
   const getIcon = (type: ToastType) => {
+    const common = { className: 'h-[18px] w-[18px]' };
     switch (type) {
       case 'success':
-        return (
-          <svg className="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        );
+        return <IconCheck {...common} />;
       case 'error':
-        return (
-          <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-          </svg>
-        );
+        return <IconClose {...common} />;
       case 'warning':
-        return (
-          <svg className="w-5 h-5 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-        );
+        return <IconAlertTriangle {...common} />;
       case 'info':
       default:
-        return (
-          <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        );
+        return <IconInfo {...common} />;
     }
   };
 
   return (
-    <div className="fixed bottom-4 right-4 z-50 space-y-2 max-w-sm">
-      {toasts.map(toast => (
-        <div
-          key={toast.id}
-          className={`flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg animate-slide-in ${getToastStyles(toast.type)}`}
-        >
-          {getIcon(toast.type)}
-          <span className="text-sm font-medium flex-1">{toast.message}</span>
-          <button
-            onClick={() => onRemove(toast.id)}
-            className="text-gray-400 hover:text-gray-600 transition-colors"
+    <div className="pointer-events-none fixed bottom-4 right-4 z-[60] flex w-[min(24rem,calc(100vw-2rem))] flex-col gap-2.5">
+      {toasts.map((toast) => {
+        const s = STYLES[toast.type];
+        return (
+          <div
+            key={toast.id}
+            role="status"
+            className={`animate-slide-in pointer-events-auto relative overflow-hidden rounded-2xl border border-white/60 bg-white/90 shadow-lifted ring-1 backdrop-blur-xl ${s.ring}`}
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-      ))}
+            <span aria-hidden="true" className={`absolute inset-y-0 left-0 w-1 ${s.accent}`} />
+            <div className="flex items-start gap-3 py-3.5 pl-5 pr-3">
+              <span
+                className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ring-1 ${s.chip}`}
+              >
+                {getIcon(toast.type)}
+              </span>
+              <span className="flex-1 pt-0.5 text-sm font-medium leading-snug text-ink-800">
+                {toast.message}
+              </span>
+              <button
+                onClick={() => onRemove(toast.id)}
+                className="btn-icon h-7 w-7 shrink-0"
+                aria-label="Bildirimi kapat"
+              >
+                <IconClose className="h-4 w-4" />
+              </button>
+            </div>
+            {/* Otomatik kapanma göstergesi (4sn) */}
+            <span
+              aria-hidden="true"
+              className={`absolute bottom-0 left-0 h-0.5 w-full origin-left animate-progress-bar ${s.accent} opacity-40`}
+            />
+          </div>
+        );
+      })}
     </div>
   );
 }
