@@ -1,4 +1,5 @@
 import { Fragment, FormEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { getCurrentPeriod, getPayrollByMonth, isPayrollApiError, MONTH_NAMES, PayrollEntry, formatCurrency } from '../api/payroll';
 import { createOvertime, createOvertimeBulk, deleteOvertime, getOvertimeEntries, OvertimeEntry, CreateOvertimeInput } from '../api/overtime';
 import { WorkArea } from '../api/employee';
@@ -144,9 +145,9 @@ function EmployeeSearchSelect({
         disabled={disabled}
         autoComplete="off"
       />
-      {isOpen && rect && (
+      {isOpen && rect && createPortal(
         <div
-          className="fixed z-[70] max-h-52 overflow-y-auto rounded-xl border border-ink-200/70 bg-white p-1.5 shadow-lifted"
+          className="fixed z-[100] max-h-52 overflow-y-auto rounded-xl border border-ink-200/70 bg-white p-1.5 shadow-lifted"
           style={{ top: rect.top, left: rect.left, width: rect.width }}
         >
           {filtered.length === 0 ? (
@@ -167,7 +168,8 @@ function EmployeeSearchSelect({
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
